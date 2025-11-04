@@ -11,6 +11,7 @@ public class RoomDAO {
         String sql = "INSERT INTO room (number, type, price, status) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setString(1, room.getNumber());
             stmt.setString(2, room.getType());
             stmt.setDouble(3, room.getPrice());
@@ -33,12 +34,13 @@ public class RoomDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                Room room = new Room();
-                room.setId(rs.getInt("id"));
-                room.setNumber(rs.getString("number"));
-                room.setType(rs.getString("type"));
-                room.setPrice(rs.getDouble("price"));
-                room.setStatus(rs.getString("status"));
+                Room room = new Room(
+                        rs.getInt("id"),
+                        rs.getString("number"),
+                        rs.getString("type"),
+                        rs.getDouble("price"),
+                        rs.getString("status")
+                );
                 rooms.add(room);
             }
         } catch (SQLException e) {
@@ -58,6 +60,7 @@ public class RoomDAO {
             stmt.setDouble(3, room.getPrice());
             stmt.setString(4, room.getStatus());
             stmt.setInt(5, room.getId());
+
             stmt.executeUpdate();
             return true;
 

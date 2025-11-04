@@ -24,7 +24,7 @@ public class Guest {
         this.phone = phone;
     }
 
-    // Getters y setters
+    // Getters and setters
     public int getId() {
         return id;
     }

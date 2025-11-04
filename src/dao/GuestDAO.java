@@ -11,6 +11,7 @@ public class GuestDAO {
         String sql = "INSERT INTO guest (first_name, last_name, email, phone) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setString(1, guest.getFirstName());
             stmt.setString(2, guest.getLastName());
             stmt.setString(3, guest.getEmail());
@@ -33,12 +34,13 @@ public class GuestDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                Guest guest = new Guest();
-                guest.setId(rs.getInt("id"));
-                guest.setFirstName(rs.getString("first_name"));
-                guest.setLastName(rs.getString("last_name"));
-                guest.setEmail(rs.getString("email"));
-                guest.setPhone(rs.getString("phone"));
+                Guest guest = new Guest(
+                        rs.getInt("id"),
+                        rs.getString("first_name"),
+                        rs.getString("last_name"),
+                        rs.getString("email"),
+                        rs.getString("phone")
+                );
                 guests.add(guest);
             }
         } catch (SQLException e) {
@@ -58,6 +60,7 @@ public class GuestDAO {
             stmt.setString(3, guest.getEmail());
             stmt.setString(4, guest.getPhone());
             stmt.setInt(5, guest.getId());
+
             stmt.executeUpdate();
             return true;
 

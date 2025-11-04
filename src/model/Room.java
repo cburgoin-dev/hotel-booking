@@ -24,7 +24,7 @@ public class Room {
         this.status = status;
     }
 
-    // Getters y setters
+    // Getters and setters
     public int getId() {
         return id;
     }

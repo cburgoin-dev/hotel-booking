@@ -11,7 +11,7 @@ public class TestGuestDAO {
         /*
         Guest g1 = new Guest("José Franco", "Rámirez Córdoba", "josefranco@gmail.com", "0000000001");
         dao.insert(g1);
-        
+
          */
 
         List<Guest> guests = dao.getAll();
