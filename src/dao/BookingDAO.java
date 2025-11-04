@@ -1,13 +1,22 @@
 package dao;
 
 import model.Booking;
+import service.BookingService;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class BookingDAO {
 
+    BookingService service = new BookingService();
+
     public boolean insert(Booking booking) {
+        if (!service.isRoomAvailable(booking.getRoomId(), booking.getCheckIn(), booking.getCheckOut())) {
+            System.err.println("Error inserting booking: The room is already booked at selected date");
+            return false;
+        }
+
         String sql = "INSERT INTO booking (room_id, guest_id, check_in, check_out, total_price, status) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -58,7 +67,7 @@ public class BookingDAO {
     }
 
     public boolean update(Booking booking) {
-        String sql = "UPDATE room SET room_id=?, guest_id=?, check_in=?, check_out=?, total_price=?, status=? WHERE id=?";
+        String sql = "UPDATE booking SET room_id=?, guest_id=?, check_in=?, check_out=?, total_price=?, status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 

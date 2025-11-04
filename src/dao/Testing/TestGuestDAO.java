@@ -1,4 +1,4 @@
-package dao;
+package dao.Testing;
 
 import dao.GuestDAO;
 import model.Guest;
