@@ -8,14 +8,15 @@ import java.util.List;
 public class RoomDAO {
 
     public boolean insert(Room room) {
-        String sql = "INSERT INTO room (number, type, price_per_night, status) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO room (number, type, price_per_night, capacity, status) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, room.getNumber());
             stmt.setString(2, room.getType());
             stmt.setDouble(3, room.getPricePerNight());
-            stmt.setString(4, room.getStatus());
+            stmt.setInt(4, room.getCapacity());
+            stmt.setString(5, room.getStatus());
             stmt.executeUpdate();
             return true;
 
@@ -39,6 +40,7 @@ public class RoomDAO {
                         rs.getString("number"),
                         rs.getString("type"),
                         rs.getDouble("price_per_night"),
+                        rs.getInt("capacity"),
                         rs.getString("status")
                 );
                 rooms.add(room);
@@ -72,16 +74,39 @@ public class RoomDAO {
         return price;
     }
 
+    public int getRoomCapacity(int roomId) {
+        String sql = "SELECT capacity FROM room WHERE id = ?";
+        int capacity = 2;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, roomId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    capacity = rs.getInt("capacity");
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return capacity;
+    }
+
     public boolean update(Room room) {
-        String sql = "UPDATE room SET number=?, type=?, price_per_night=?, status=? WHERE id=?";
+        String sql = "UPDATE room SET number=?, type=?, price_per_night=?, capacity=?, status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, room.getNumber());
             stmt.setString(2, room.getType());
             stmt.setDouble(3, room.getPricePerNight());
-            stmt.setString(4, room.getStatus());
-            stmt.setInt(5, room.getId());
+            stmt.setInt(4, room.getCapacity());
+            stmt.setString(5, room.getStatus());
+            stmt.setInt(6, room.getId());
 
             stmt.executeUpdate();
             return true;

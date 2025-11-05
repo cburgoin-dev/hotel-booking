@@ -16,4 +16,8 @@ public class RoomService {
     public double getRoomPricePerNight(int roomId) {
         return dao.getRoomPricePerNight(roomId);
     }
+
+    public int getRoomCapacity(int roomId) {
+        return dao.getRoomCapacity(roomId);
+    }
 }

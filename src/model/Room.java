@@ -5,22 +5,25 @@ public class Room {
     private String number;
     private String type;
     private double pricePerNight;
+    private int capacity;
     private String status;
 
     public Room() {}
 
-    public Room(String number, String type, double pricePerNight, String status) {
+    public Room(String number, String type, double pricePerNight, int capacity, String status) {
         this.number = number;
         this.type = type;
         this.pricePerNight = pricePerNight;
+        this.capacity = capacity;
         this.status = status;
     }
 
-    public Room(int id, String number, String type, double pricePerNight, String status) {
+    public Room(int id, String number, String type, double pricePerNight, int capacity, String status) {
         this.id = id;
         this.number = number;
         this.type = type;
         this.pricePerNight = pricePerNight;
+        this.capacity = capacity;
         this.status = status;
     }
 
@@ -51,6 +54,13 @@ public class Room {
     }
     public void setPricePerNight(double pricePerNight) {
         this.pricePerNight = pricePerNight;
+    }
+
+    public int getCapacity() {
+        return capacity;
+    }
+    public void setCapacity(int capacity) {
+        this.capacity = capacity;
     }
 
     public String getStatus() {

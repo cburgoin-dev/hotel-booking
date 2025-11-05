@@ -9,26 +9,29 @@ public class Booking {
     private Date checkIn;
     private Date checkOut;
     private double totalPrice;
+    private int numGuests;
     private String status;
 
     public Booking() {}
 
-    public Booking(int roomId, int guestId, Date checkIn, Date checkOut, double totalPrice, String status) {
+    public Booking(int roomId, int guestId, Date checkIn, Date checkOut, double totalPrice, int numGuests, String status) {
         this.roomId = roomId;
         this.guestId = guestId;
         this.checkIn = checkIn;
         this.checkOut = checkOut;
         this.totalPrice = totalPrice;
+        this.numGuests = numGuests;
         this.status = status;
     }
 
-    public Booking(int id, int roomId, int guestId, Date checkIn, Date checkOut, double totalPrice, String status) {
+    public Booking(int id, int roomId, int guestId, Date checkIn, Date checkOut, double totalPrice, int numGuests, String status) {
         this.id = id;
         this.roomId = roomId;
         this.guestId = guestId;
         this.checkIn = checkIn;
         this.checkOut = checkOut;
         this.totalPrice = totalPrice;
+        this.numGuests = numGuests;
         this.status = status;
     }
 
@@ -73,6 +76,13 @@ public class Booking {
     }
     public void setTotalPrice(double totalPrice) {
         this.totalPrice = totalPrice;
+    }
+
+    public int getNumGuests() {
+        return numGuests;
+    }
+    public void setNumGuests(int numGuests) {
+        this.numGuests = numGuests;
     }
 
     public String getStatus() {

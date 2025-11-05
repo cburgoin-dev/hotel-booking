@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 public class BookingDAO {
 
     public boolean insert(Booking booking) {
-        String sql = "INSERT INTO booking (room_id, guest_id, check_in, check_out, total_price, status) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO booking (room_id, guest_id, check_in, check_out, total_price, num_guests, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -25,7 +25,8 @@ public class BookingDAO {
             stmt.setDate(4, new java.sql.Date(booking.getCheckOut().getTime()));
 
             stmt.setDouble(5, booking.getTotalPrice());
-            stmt.setString(6, booking.getStatus());
+            stmt.setInt(6, booking.getNumGuests());
+            stmt.setString(7, booking.getStatus());
             stmt.executeUpdate();
             return true;
 
@@ -51,6 +52,7 @@ public class BookingDAO {
                         rs.getDate("check_in"),
                         rs.getDate("check_out"),
                         rs.getDouble("total_price"),
+                        rs.getInt("num_guests"),
                         rs.getString("status")
                 );
                 bookings.add(booking);
@@ -82,6 +84,7 @@ public class BookingDAO {
                             rs.getDate("check_in"),
                             rs.getDate("check_out"),
                             rs.getDouble("total_price"),
+                            rs.getInt("num_guests"),
                             rs.getString("status")
                     );
                     overlappingBookings.add(booking);
@@ -121,6 +124,7 @@ public class BookingDAO {
                         rs.getDate("check_in"),
                         rs.getDate("check_out"),
                         rs.getDouble("total_price"),
+                        rs.getInt("num_guests"),
                         rs.getString("status")
                 );
                 bookings.add(booking);
@@ -133,7 +137,7 @@ public class BookingDAO {
     }
 
     public boolean update(Booking booking) {
-        String sql = "UPDATE booking SET room_id=?, guest_id=?, check_in=?, check_out=?, total_price=?, status=? WHERE id=?";
+        String sql = "UPDATE booking SET room_id=?, guest_id=?, check_in=?, check_out=?, total_price=?, num_guests=?, status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -142,8 +146,9 @@ public class BookingDAO {
             stmt.setDate(3, new java.sql.Date(booking.getCheckIn().getTime()));
             stmt.setDate(4, new java.sql.Date(booking.getCheckOut().getTime()));
             stmt.setDouble(5, booking.getTotalPrice());
-            stmt.setString(6, booking.getStatus());
-            stmt.setInt(7, booking.getId());
+            stmt.setInt(6, booking.getNumGuests());
+            stmt.setString(7, booking.getStatus());
+            stmt.setInt(8, booking.getId());
 
             stmt.executeUpdate();
             return true;
