@@ -66,6 +66,7 @@ public class Guest {
                 + "\nFirst Name: " + this.firstName
                 + "\nLast Name: " + this.lastName
                 + "\nEmail: " + this.email
-                + "\nPhone: " + this.phone;
+                + "\nPhone: " + this.phone
+                + "\n";
     }
 }

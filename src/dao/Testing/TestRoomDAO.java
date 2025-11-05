@@ -9,7 +9,7 @@ public class TestRoomDAO {
         RoomDAO dao = new RoomDAO();
 
         /*
-        Room r1 = new Room("101", "Suite", 150.0, 50.0, 2, 2, "available");
+        Room r1 = new Room("101", "suite", 150.0, 50.0, 2, 2, "available");
         dao.insert(r1);
 
          */
@@ -19,6 +19,9 @@ public class TestRoomDAO {
         dao.insert(r2);
 
          */
+
+        Room r3 = new Room("103", "double", 180.0, .60, 2, 2, "available");
+        dao.insert(r3);
 
         List<Room> rooms = dao.getAll();
         rooms.forEach(System.out::println);

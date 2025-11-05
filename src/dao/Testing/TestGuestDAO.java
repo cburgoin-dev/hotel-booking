@@ -20,6 +20,12 @@ public class TestGuestDAO {
 
          */
 
+        /*
+        Guest g3 = new Guest("Enrique", "Lúcero Rivas", "enriquelucero@gmail.com", "0000000003");
+        dao.insert(g3);
+
+         */
+
         List<Guest> guests = dao.getAll();
         guests.forEach(System.out::println);
     }

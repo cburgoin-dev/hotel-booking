@@ -99,6 +99,7 @@ public class Room {
                 + "\nExtra Guest Price per Night: " + this.extraGuestPricePerNight
                 + "\nCapacity: " + this.capacity
                 + "\nAllowed Extra Guests: " + this.allowedExtraGuests
-                + "\nStatus: " + this.status;
+                + "\nStatus: " + this.status
+                + "\n";
     }
 }

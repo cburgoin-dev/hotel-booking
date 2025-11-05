@@ -101,6 +101,7 @@ public class Booking {
                 + "\nCheck Out: " + this.checkOut
                 + "\nTotal Price: " + this.totalPrice
                 + "\nNumber of Guests: " + this.numGuests
-                + "\nStatus: " + this.status;
+                + "\nStatus: " + this.status
+                + "\n";
     }
 }

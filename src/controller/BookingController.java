@@ -17,6 +17,8 @@ public class BookingController implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        System.out.println("Received request: " + exchange.getRequestMethod());
+
         String method = exchange.getRequestMethod();
 
         switch (method) {
@@ -24,6 +26,7 @@ public class BookingController implements HttpHandler {
                 handleGetAllBookings(exchange);
                 break;
             case "POST":
+                handleCreateBooking(exchange);
                 break;
             default:
                 sendResponse(exchange, 405, "Method not allowed");
@@ -37,6 +40,27 @@ public class BookingController implements HttpHandler {
             sendResponse(exchange, 200, jsonResponse);
         } catch (Exception e) {
             sendResponse(exchange, 500, gson.toJson("Error getting bookings: " + e.getMessage()));
+        }
+    }
+
+    private void handleCreateBooking(HttpExchange exchange) throws IOException {
+        try {
+            String requestBody = new String(exchange.getRequestBody().readAllBytes());
+            System.out.println("Reading request...");
+            System.out.println(requestBody);
+            Booking booking = gson.fromJson(requestBody, Booking.class);
+            boolean created = bookingService.createBooking(booking);
+
+            if (created) {
+                String success = gson.toJson("Booking created successfully");
+                sendResponse(exchange, 201, success); // 201: Created
+            } else {
+                String fail = gson.toJson("Booking could not be created");
+                sendResponse(exchange, 400, fail);
+            }
+        } catch (Exception e) {
+            String error = gson.toJson("Error creating booking: " + e.getMessage());
+            sendResponse(exchange, 500, error);
         }
     }
 
