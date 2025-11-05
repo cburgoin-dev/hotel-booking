@@ -5,8 +5,10 @@ import service.BookingService;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Date;
+import java.util.stream.Collectors;
 
 public class BookingDAO {
 
@@ -90,6 +92,44 @@ public class BookingDAO {
         }
 
         return overlappingBookings;
+    }
+
+    public List<Booking> getBookingsByGuestAndStatus(int guestId, List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String placeholders = statuses.stream().map(s -> "?").collect(Collectors.joining(","));
+        String sql = "SELECT * FROM booking WHERE guest_id=? AND status IN (" + placeholders + ")";
+
+        List<Booking> bookings = new ArrayList<>();
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, guestId);
+            for (int i = 0; i < statuses.size(); i++) {
+                stmt.setString(i + 2, statuses.get(i));
+            }
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Booking booking = new Booking(
+                        rs.getInt("id"),
+                        rs.getInt("room_id"),
+                        rs.getInt("guest_id"),
+                        rs.getDate("check_in"),
+                        rs.getDate("check_out"),
+                        rs.getDouble("total_price"),
+                        rs.getString("status")
+                );
+                bookings.add(booking);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return bookings;
     }
 
     public boolean update(Booking booking) {

@@ -20,15 +20,12 @@ public class TestBookingDAO {
         cal.set(2025, Calendar.NOVEMBER, 7);
         Date checkOut = cal.getTime();
 
-        /*
-        Booking b1 = new Booking(1, 1, checkIn, checkOut, 0.0, "pending");
+        Booking b1 = new Booking(2, 2, checkIn, checkOut, 0.0, "pending");
         if (service.createBooking(b1)) {
             System.out.println("Booking made successfully");
         } else {
             System.out.println("Couldn't add booking");
         }
-
-         */
 
         List<Booking> bookings = dao.getAll();
         bookings.forEach(System.out::println);
