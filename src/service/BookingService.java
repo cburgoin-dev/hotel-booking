@@ -11,6 +11,10 @@ public class BookingService {
     private final BookingDAO bookingDAO = new BookingDAO();
     private final RoomService roomService = new RoomService();
 
+    public Booking getBookingById(int id) {
+        return bookingDAO.findById(id);
+    }
+
     public List<Booking> getAllBookings() {
         return bookingDAO.getAll();
     }

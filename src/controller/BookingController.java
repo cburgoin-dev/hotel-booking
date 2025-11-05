@@ -23,13 +23,37 @@ public class BookingController implements HttpHandler {
 
         switch (method) {
             case "GET":
-                handleGetAllBookings(exchange);
+                String path = exchange.getRequestURI().getPath();
+                if (path.matches("/api/bookings/\\d+")) {
+                    handleGetBookingById(exchange);
+                } else {
+                    handleGetAllBookings(exchange);
+                }
                 break;
             case "POST":
                 handleCreateBooking(exchange);
                 break;
             default:
                 sendResponse(exchange, 405, "Method not allowed");
+        }
+    }
+
+    private void handleGetBookingById(HttpExchange exchange) throws IOException {
+        try {
+            String path = exchange.getRequestURI().getPath();
+            String[] parts = path.split("/");
+            int id = Integer.parseInt(parts[parts.length - 1]);
+
+            Booking booking = bookingService.getBookingById(id);
+
+            if (booking != null) {
+                String jsonResponse = gson.toJson(booking);
+                sendResponse(exchange, 200, jsonResponse);
+            } else {
+                sendResponse(exchange, 404, "Booking not found");
+            }
+        } catch (Exception e) {
+            sendResponse(exchange, 500, gson.toJson("Error getting booking: " + e.getMessage()));
         }
     }
 

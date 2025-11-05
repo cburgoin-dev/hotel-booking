@@ -35,6 +35,32 @@ public class BookingDAO {
         }
     }
 
+    public Booking findById(int id) {
+        String sql = "SELECT * FROM booking WHERE id=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Booking(
+                            rs.getInt("id"),
+                            rs.getInt("room_id"),
+                            rs.getInt("guest_id"),
+                            rs.getDate("check_in"),
+                            rs.getDate("check_out"),
+                            rs.getDouble("total_price"),
+                            rs.getInt("num_guests"),
+                            rs.getString("status")
+                    );
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error finding booking by ID: " + e.getMessage());
+        }
+        return null;
+    }
+
     public List<Booking> getAll() {
         List<Booking> bookings = new ArrayList<>();
         String sql = "SELECT * FROM booking";
