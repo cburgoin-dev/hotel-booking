@@ -84,7 +84,8 @@ public class BookingService {
     }
 
     public double calculateTotalPrice(Booking booking) throws Exception {
-        double pricePerNight = roomService.getRoomPricePerNight(booking.getRoomId());
+        int roomId = booking.getRoomId();
+        double pricePerNight = roomService.getRoomPricePerNight(roomId);
 
         long diffInMs = booking.getCheckOut().getTime() - booking.getCheckIn().getTime();
         long nights = diffInMs / (1000 * 60 * 60 * 24);
@@ -93,7 +94,21 @@ public class BookingService {
             throw new Exception("Invalid date range: check-in and check-out must be at least one night apart.");
         }
 
-        return pricePerNight * nights;
+        int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(roomId));
+
+        if (!verifyCapacity(extraGuests, roomId)) {
+            throw new Exception("The number of guests exceeds the allowed extra guests capacity");
+        }
+
+        double basePrice = pricePerNight * nights;
+        double extraGuestPricePerNight = roomService.getRoomExtraGuestPricePerNight(roomId);
+        double extraPrice = extraGuests * extraGuestPricePerNight * nights;
+
+        return basePrice + extraPrice;
+    }
+
+    public boolean verifyCapacity(int extraGuests, int roomId) {
+        return extraGuests <= roomService.getRoomCapacity(roomId);
     }
 
     public boolean hasGuestActiveBooking(int guestId) {

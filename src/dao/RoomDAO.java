@@ -8,15 +8,17 @@ import java.util.List;
 public class RoomDAO {
 
     public boolean insert(Room room) {
-        String sql = "INSERT INTO room (number, type, price_per_night, capacity, status) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO room (number, type, price_per_night, extra_guest_price_per_night, capacity, allowed_extra_guests, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, room.getNumber());
             stmt.setString(2, room.getType());
             stmt.setDouble(3, room.getPricePerNight());
-            stmt.setInt(4, room.getCapacity());
-            stmt.setString(5, room.getStatus());
+            stmt.setDouble(4, room.getExtraGuestPricePerNight());
+            stmt.setInt(5, room.getCapacity());
+            stmt.setInt(6, room.getAllowedExtraGuests());
+            stmt.setString(7, room.getStatus());
             stmt.executeUpdate();
             return true;
 
@@ -40,7 +42,9 @@ public class RoomDAO {
                         rs.getString("number"),
                         rs.getString("type"),
                         rs.getDouble("price_per_night"),
+                        rs.getDouble("extra_guest_price_per_night"),
                         rs.getInt("capacity"),
+                        rs.getInt("allowed_extra_guests"),
                         rs.getString("status")
                 );
                 rooms.add(room);
@@ -74,6 +78,28 @@ public class RoomDAO {
         return price;
     }
 
+    public double getRoomExtraGuestPricePerNight(int roomId) {
+        String sql = "SELECT extra_guest_price_per_night FROM room WHERE id = ?";
+        double price = 0.0;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, roomId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    price = rs.getDouble("extra_guest_price_per_night");
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return price;
+    }
+
     public int getRoomCapacity(int roomId) {
         String sql = "SELECT capacity FROM room WHERE id = ?";
         int capacity = 2;
@@ -96,17 +122,41 @@ public class RoomDAO {
         return capacity;
     }
 
+    public int getRoomAllowedExtraGuests(int roomId) {
+        String sql = "SELECT allowed_extra_guests FROM room WHERE id = ?";
+        int allowedExtraGuests = 0;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, roomId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    allowedExtraGuests = rs.getInt("allowed_extra_guests");
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return allowedExtraGuests;
+    }
+
     public boolean update(Room room) {
-        String sql = "UPDATE room SET number=?, type=?, price_per_night=?, capacity=?, status=? WHERE id=?";
+        String sql = "UPDATE room SET number=?, type=?, price_per_night=?, extra_guest_price_per_night=?, capacity=?, allowed_extra_guests=?, status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, room.getNumber());
             stmt.setString(2, room.getType());
             stmt.setDouble(3, room.getPricePerNight());
-            stmt.setInt(4, room.getCapacity());
-            stmt.setString(5, room.getStatus());
-            stmt.setInt(6, room.getId());
+            stmt.setDouble(4, room.getExtraGuestPricePerNight());
+            stmt.setInt(5, room.getCapacity());
+            stmt.setInt(6, room.getAllowedExtraGuests());
+            stmt.setString(7, room.getStatus());
+            stmt.setInt(8, room.getId());
 
             stmt.executeUpdate();
             return true;

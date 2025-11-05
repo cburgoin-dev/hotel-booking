@@ -100,6 +100,7 @@ public class Booking {
                 + "\nCheck In: " + this.checkIn
                 + "\nCheck Out: " + this.checkOut
                 + "\nTotal Price: " + this.totalPrice
+                + "\nNumber of Guests: " + this.numGuests
                 + "\nStatus: " + this.status;
     }
 }

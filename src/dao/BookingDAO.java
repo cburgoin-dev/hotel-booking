@@ -1,7 +1,6 @@
 package dao;
 
 import model.Booking;
-import service.BookingService;
 
 import java.sql.*;
 import java.util.ArrayList;
