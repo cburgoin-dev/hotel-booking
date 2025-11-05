@@ -11,6 +11,10 @@ public class BookingService {
     private final BookingDAO bookingDAO = new BookingDAO();
     private final RoomService roomService = new RoomService();
 
+    public List<Booking> getAllBookings() {
+        return bookingDAO.getAll();
+    }
+
     public boolean createBooking(Booking booking) throws Exception {
         if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
             throw new Exception("Cannot create booking: booking date is not valid. Please select a valid date.");
