@@ -6,17 +6,11 @@ import service.BookingService;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Date;
 
 public class BookingDAO {
 
-    BookingService service = new BookingService();
-
     public boolean insert(Booking booking) {
-        if (!service.isRoomAvailable(booking.getRoomId(), booking.getCheckIn(), booking.getCheckOut())) {
-            System.err.println("Error inserting booking: The room is already booked at selected date");
-            return false;
-        }
-
         String sql = "INSERT INTO booking (room_id, guest_id, check_in, check_out, total_price, status) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -66,6 +60,38 @@ public class BookingDAO {
         return bookings;
     }
 
+    public List<Booking> getOverlappingBookings(int roomId, Date checkIn, Date checkOut) {
+        List<Booking> overlappingBookings = new ArrayList<>();
+        String sql = "SELECT * FROM booking WHERE room_id=? AND (check_in < ? AND check_out > ?)";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, roomId);
+            stmt.setDate(2, new java.sql.Date(checkOut.getTime()));
+            stmt.setDate(3, new java.sql.Date(checkIn.getTime()));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Booking booking = new Booking(
+                            rs.getInt("id"),
+                            rs.getInt("room_id"),
+                            rs.getInt("guest_id"),
+                            rs.getDate("check_in"),
+                            rs.getDate("check_out"),
+                            rs.getDouble("total_price"),
+                            rs.getString("status")
+                    );
+                    overlappingBookings.add(booking);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching overlapping bookings: " + e.getMessage());
+        }
+
+        return overlappingBookings;
+    }
+
     public boolean update(Booking booking) {
         String sql = "UPDATE booking SET room_id=?, guest_id=?, check_in=?, check_out=?, total_price=?, status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -84,6 +110,22 @@ public class BookingDAO {
 
         } catch (SQLException e) {
             System.err.println("Error updating booking: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean updateStatus(int bookingId, String newStatus) {
+        String sql = "UPDATE booking SET status=? WHERE booking_id=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, newStatus);
+            stmt.setInt(2, bookingId);
+
+            stmt.executeUpdate();
+            return true;
+
+        } catch (SQLException e) {
+            System.err.println("Error updating booking status: " + e.getMessage());
             return false;
         }
     }
