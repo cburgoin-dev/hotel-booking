@@ -12,4 +12,8 @@ public class RoomService {
     public void markRoomAsAvailable(int roomId) {
         dao.updateStatus(roomId, "available");
     }
+
+    public double getRoomPricePerNight(int roomId) {
+        return dao.getRoomPricePerNight(roomId);
+    }
 }

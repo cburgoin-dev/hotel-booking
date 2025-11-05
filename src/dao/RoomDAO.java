@@ -8,13 +8,13 @@ import java.util.List;
 public class RoomDAO {
 
     public boolean insert(Room room) {
-        String sql = "INSERT INTO room (number, type, price, status) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO room (number, type, price_per_night, status) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, room.getNumber());
             stmt.setString(2, room.getType());
-            stmt.setDouble(3, room.getPrice());
+            stmt.setDouble(3, room.getPricePerNight());
             stmt.setString(4, room.getStatus());
             stmt.executeUpdate();
             return true;
@@ -38,7 +38,7 @@ public class RoomDAO {
                         rs.getInt("id"),
                         rs.getString("number"),
                         rs.getString("type"),
-                        rs.getDouble("price"),
+                        rs.getDouble("price_per_night"),
                         rs.getString("status")
                 );
                 rooms.add(room);
@@ -50,14 +50,36 @@ public class RoomDAO {
         return rooms;
     }
 
+    public double getRoomPricePerNight(int roomId) {
+        String sql = "SELECT price_per_night FROM room WHERE id = ?";
+        double price = 0.0;
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, roomId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    price = rs.getDouble("price_per_night");
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return price;
+    }
+
     public boolean update(Room room) {
-        String sql = "UPDATE room SET number=?, type=?, price=?, status=? WHERE id=?";
+        String sql = "UPDATE room SET number=?, type=?, price_per_night=?, status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, room.getNumber());
             stmt.setString(2, room.getType());
-            stmt.setDouble(3, room.getPrice());
+            stmt.setDouble(3, room.getPricePerNight());
             stmt.setString(4, room.getStatus());
             stmt.setInt(5, room.getId());
 
@@ -71,7 +93,7 @@ public class RoomDAO {
     }
 
     public boolean updateStatus(int roomId, String newStatus) {
-        String sql = "UPDATE room SET status=? WHERE room_id=?";
+        String sql = "UPDATE room SET status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, newStatus);

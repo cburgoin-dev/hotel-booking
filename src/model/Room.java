@@ -4,23 +4,23 @@ public class Room {
     private int id;
     private String number;
     private String type;
-    private double price;
+    private double pricePerNight;
     private String status;
 
     public Room() {}
 
-    public Room(String number, String type, double price, String status) {
+    public Room(String number, String type, double pricePerNight, String status) {
         this.number = number;
         this.type = type;
-        this.price = price;
+        this.pricePerNight = pricePerNight;
         this.status = status;
     }
 
-    public Room(int id, String number, String type, double price, String status) {
+    public Room(int id, String number, String type, double pricePerNight, String status) {
         this.id = id;
         this.number = number;
         this.type = type;
-        this.price = price;
+        this.pricePerNight = pricePerNight;
         this.status = status;
     }
 
@@ -46,11 +46,11 @@ public class Room {
         this.type = type;
     }
 
-    public double getPrice() {
-        return price;
+    public double getPricePerNight() {
+        return pricePerNight;
     }
-    public void setPrice(double price) {
-        this.price = price;
+    public void setPricePerNight(double pricePerNight) {
+        this.pricePerNight = pricePerNight;
     }
 
     public String getStatus() {
@@ -65,7 +65,7 @@ public class Room {
         return "Room with ID " + this.id
                 + "\nNumber: " + this.number
                 + "\nType: " + this.type
-                + "\nPrice: " + this.price
+                + "\nPrice: " + this.pricePerNight
                 + "\nStatus: " + this.status;
     }
 }
