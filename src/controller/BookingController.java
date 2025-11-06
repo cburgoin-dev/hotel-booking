@@ -9,6 +9,7 @@ import exception.DAOException;
 import exception.NotFoundException;
 import model.Booking;
 import service.BookingService;
+import util.SecurityUtil;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -24,6 +25,10 @@ public class BookingController implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        if (!SecurityUtil.isAuthorized(exchange)) {
+            return;
+        }
+
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
 
