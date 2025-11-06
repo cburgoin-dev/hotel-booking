@@ -193,7 +193,7 @@ public class BookingDAO {
     }
 
     public boolean updateStatus(int bookingId, String newStatus) {
-        String sql = "UPDATE booking SET status=? WHERE booking_id=?";
+        String sql = "UPDATE booking SET status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, newStatus);

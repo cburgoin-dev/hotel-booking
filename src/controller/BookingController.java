@@ -20,13 +20,21 @@ public class BookingController implements HttpHandler {
         System.out.println("Received request: " + exchange.getRequestMethod());
 
         String method = exchange.getRequestMethod();
+        String path = exchange.getRequestURI().getPath();
 
         switch (method) {
             case "POST":
-                handleCreateBooking(exchange);
+                if (path.matches("/api/bookings/?")) {
+                    handleCreateBooking(exchange);
+                } else if (path.matches("/api/bookings/\\d+/confirm")) {
+                    handleConfirmBooking(exchange);
+                } else if (path.matches("/api/bookings/\\d+/checkin")) {
+                    handleCheckInBooking(exchange);
+                } else if (path.matches("/api/bookings/\\d+/checkout")) {
+                    handleCheckOutBooking(exchange);
+                }
                 break;
             case "GET":
-                String path = exchange.getRequestURI().getPath();
                 if (path.matches("/api/bookings/\\d+")) {
                     handleGetBookingById(exchange);
                 } else {
@@ -37,6 +45,7 @@ public class BookingController implements HttpHandler {
                 handleUpdateBooking(exchange);
                 break;
             case "DELETE":
+                handleCancelBooking(exchange);
                 break;
             default:
                 sendResponse(exchange, 405, "Method not allowed");
@@ -117,6 +126,75 @@ public class BookingController implements HttpHandler {
         } catch (Exception e) {
             sendResponse(exchange, 500, gson.toJson("Error updating booking: " + e.getMessage()));
         }
+    }
+
+    private void handleConfirmBooking(HttpExchange exchange) throws IOException {
+        try {
+            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
+            Booking booking = bookingService.getBookingById(bookingId);
+            boolean success = bookingService.confirmBooking(booking);
+
+            if (success) {
+                sendResponse(exchange, 200, gson.toJson("Booking confirmed successfully"));
+            } else {
+                sendResponse(exchange, 400, gson.toJson("Could not confirm booking"));
+            }
+        } catch (Exception e) {
+            sendResponse(exchange, 500, gson.toJson("Error confirming booking: " + e.getMessage()));
+        }
+    }
+
+    private void handleCheckInBooking(HttpExchange exchange) throws IOException {
+        try {
+            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
+            Booking booking = bookingService.getBookingById(bookingId);
+            boolean success = bookingService.checkInBooking(booking);
+
+            if (success) {
+                sendResponse(exchange, 200, gson.toJson("Checked in successfully"));
+            } else {
+                sendResponse(exchange, 400, gson.toJson("Could not check in"));
+            }
+        } catch (Exception e) {
+            sendResponse(exchange, 500, gson.toJson("Error checking in: " + e.getMessage()));
+        }
+    }
+
+    private void handleCheckOutBooking(HttpExchange exchange) throws IOException {
+        try {
+            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
+            Booking booking = bookingService.getBookingById(bookingId);
+            boolean success = bookingService.checkOutBooking(booking);
+
+            if (success) {
+                sendResponse(exchange, 200, gson.toJson("Checked out successfully"));
+            } else {
+                sendResponse(exchange, 400, gson.toJson("Could not check out"));
+            }
+        } catch (Exception e) {
+            sendResponse(exchange, 500, gson.toJson("Error checking out: " + e.getMessage()));
+        }
+    }
+
+    private void handleCancelBooking(HttpExchange exchange) throws IOException {
+        try {
+            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
+            Booking booking = bookingService.getBookingById(bookingId);
+            boolean success = bookingService.cancelBooking(booking);
+
+            if (success) {
+                sendResponse(exchange, 200, gson.toJson("Booking cancelled successfully"));
+            } else {
+                sendResponse(exchange, 400, gson.toJson("Could not cancel booking"));
+            }
+        } catch (Exception e) {
+            sendResponse(exchange, 500, gson.toJson("Error cancelling booking: " + e.getMessage()));
+        }
+    }
+
+    private int extractBookingId(String path) {
+        String[] parts = path.split("/");
+        return Integer.parseInt(parts[3]); // 4th segment is the ID
     }
 
     private void sendResponse(HttpExchange exchange, int statusCode, String response) throws IOException {
