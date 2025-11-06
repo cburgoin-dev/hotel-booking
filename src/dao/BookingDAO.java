@@ -1,5 +1,7 @@
 package dao;
 
+import exception.DAOException;
+import exception.NotFoundException;
 import model.Booking;
 
 import java.sql.*;
@@ -14,7 +16,7 @@ import java.util.stream.Collectors;
 public class BookingDAO {
     private static final Logger logger = Logger.getLogger(BookingDAO.class.getName());
 
-    public boolean insert(Booking booking) {
+    public void insert(Booking booking) throws DAOException {
         String sql = "INSERT INTO booking (room_id, guest_id, check_in, check_out, total_price, num_guests, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -32,15 +34,14 @@ public class BookingDAO {
 
             int rows = stmt.executeUpdate();
             logger.info("Inserted booking: bookingId=" + booking.getId() + ", affectedRows=" + rows);
-            return rows > 0;
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error inserting booking for guestId=" + booking.getGuestId(), e);
-            return false;
+            throw new DAOException("Failed to insert booking for guestId=" + booking.getGuestId(), e);
         }
     }
 
-    public Booking findById(int id) {
+    public Booking findById(int id) throws DAOException, NotFoundException {
         String sql = "SELECT * FROM booking WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -62,15 +63,16 @@ public class BookingDAO {
                     return booking;
                 } else{
                     logger.fine("No booking found with ID: " + id);
+                    throw new NotFoundException("Failed to find booking by ID=" + id);
                 }
             }
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error finding booking by ID=" + id, e);
+            throw new DAOException("Failed to find booking by ID=" + id, e);
         }
-        return null;
     }
 
-    public List<Booking> getAll() {
+    public List<Booking> getAll() throws DAOException {
         List<Booking> bookings = new ArrayList<>();
         String sql = "SELECT * FROM booking";
         logger.fine("Fetching all bookings");
@@ -96,12 +98,13 @@ public class BookingDAO {
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error fetching all bookings", e);
+            throw new DAOException("Failed to fetch all bookings", e);
         }
 
         return bookings;
     }
 
-    public List<Booking> getOverlappingBookings(int roomId, Date checkIn, Date checkOut, Integer bookingIdToExclude) {
+    public List<Booking> getOverlappingBookings(int roomId, Date checkIn, Date checkOut, Integer bookingIdToExclude) throws DAOException {
         List<Booking> overlappingBookings = new ArrayList<>();
         String sql = "SELECT * FROM booking WHERE room_id=? AND (check_in < ? AND check_out > ?)";
 
@@ -139,12 +142,13 @@ public class BookingDAO {
             logger.info("Fetched overlapping bookings, count=" + overlappingBookings.size());
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error fetching overlapping bookings for roomId=" + roomId, e);
+            throw new DAOException("Failed to fetch overlapping bookings for roomId=" + roomId, e);
         }
 
         return overlappingBookings;
     }
 
-    public List<Booking> getBookingsByGuestAndStatus(int guestId, List<String> statuses) {
+    public List<Booking> getBookingsByGuestAndStatus(int guestId, List<String> statuses) throws DAOException {
         if (statuses == null || statuses.isEmpty()) {
             logger.fine("No statuses provided for guestId=" + guestId + ", returning empty list");
             return Collections.emptyList();
@@ -181,12 +185,13 @@ public class BookingDAO {
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error fetching bookings for guestId=" + guestId + " with statuses=" + statuses, e);
+            throw new DAOException("Failed to fetch bookings for guestId=" + guestId + " with statuses=" + statuses, e);
         }
 
         return bookings;
     }
 
-    public boolean update(Booking booking) {
+    public void update(Booking booking) throws DAOException, NotFoundException {
         String sql = "UPDATE booking SET room_id=?, guest_id=?, check_in=?, check_out=?, total_price=?, num_guests=?, status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -201,16 +206,19 @@ public class BookingDAO {
             stmt.setInt(8, booking.getId());
 
             int rows = stmt.executeUpdate();
+            if (rows == 0) {
+                logger.warning("No booking found to update: bookingId=" + booking.getId());
+                throw new NotFoundException("Booking not found for update: id=" + booking.getId());
+            }
             logger.info("Updated booking: bookingId=" + booking.getId() + ", affectedRows=" + rows);
-            return rows > 0;
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error updating booking: bookingId=" + booking.getId(), e);
-            return false;
+            throw new DAOException("Failed to update booking with ID=" + booking.getId(), e);
         }
     }
 
-    public boolean updateStatus(int bookingId, String newStatus) {
+    public void updateStatus(int bookingId, String newStatus) throws DAOException, NotFoundException {
         String sql = "UPDATE booking SET status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -218,29 +226,35 @@ public class BookingDAO {
             stmt.setInt(2, bookingId);
 
             int rows = stmt.executeUpdate();
+            if (rows == 0) {
+                logger.warning("No booking found to update status: bookingId=" + bookingId);
+                throw new NotFoundException("Booking not found to update status: id=" + bookingId);
+            }
             logger.info("Updated booking status: bookingId=" + bookingId + ", newStatus=" + newStatus + ", affectedRows=" + rows);
-            return rows > 0;
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error updating booking status: bookingId=" + bookingId, e);
-            return false;
+            throw new DAOException("Failed to update booking status with ID=" + bookingId, e);
         }
     }
 
-    public boolean delete(int id) {
+    public void delete(int id) throws DAOException, NotFoundException {
         String sql = "DELETE FROM booking WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, id);
-
             int rows = stmt.executeUpdate();
+
+            if (rows == 0) {
+                logger.warning("No booking found to delete: bookingId=" + id);
+                throw new NotFoundException("Booking not found for delete: id=" + id);
+            }
             logger.info("Deleting booking: bookingId=" + id + ", affectedRows=" + rows);
-            return rows > 0;
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error deleting booking: bookingId=" + id, e);
-            return false;
+            throw new DAOException("Failed to delete booking with ID=" + id, e);
         }
     }
 }

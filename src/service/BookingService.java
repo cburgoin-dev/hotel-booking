@@ -15,15 +15,15 @@ public class BookingService {
     private final BookingDAO bookingDAO = new BookingDAO();
     private final RoomService roomService = new RoomService();
 
-    public Booking getBookingById(int id) {
+    public Booking getBookingById(int id) throws DAOException, NotFoundException {
         return bookingDAO.findById(id);
     }
 
-    public List<Booking> getAllBookings() {
+    public List<Booking> getAllBookings() throws DAOException {
         return bookingDAO.getAll();
     }
 
-    public boolean createBooking(Booking booking) throws Exception {
+    public void createBooking(Booking booking) throws DAOException, BookingDateInvalidException, RoomUnavailableException, GuestHasActiveBookingException, CapacityExceededException, InvalidDateRangeException {
         logger.info("Attempting to create booking for guestId=" + booking.getGuestId() + ", roomId=" + booking.getRoomId() + ", checkIn=" + booking.getCheckIn() + ", checkOut=" + booking.getCheckOut());
 
         if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
@@ -45,21 +45,12 @@ public class BookingService {
             throw new CapacityExceededException();
         }
 
-        double totalPrice = calculateTotalPrice(booking, extraGuests);
-        booking.setTotalPrice(totalPrice);
-
-        boolean created = bookingDAO.insert(booking);
-
-        if (created) {
-            logger.info("Booking created successfully: bookingId=" + booking.getId());
-        } else {
-            logger.warning("Booking creation failed for guestId=" + booking.getGuestId());
-        }
-
-        return created;
+        booking.setTotalPrice(calculateTotalPrice(booking, extraGuests));
+        bookingDAO.insert(booking);
+        logger.info("Booking created successfully: bookingId=" + booking.getId());
     }
 
-    public boolean updateBooking(Booking booking) throws Exception {
+    public void updateBooking(Booking booking) throws DAOException, NotFoundException, BookingDateInvalidException, RoomUnavailableException, CapacityExceededException, InvalidDateRangeException {
         logger.info("Attempting to update booking for guestId=" + booking.getGuestId() + ", roomId=" + booking.getRoomId() + ", checkIn=" + booking.getCheckIn() + ", checkOut=" + booking.getCheckOut());
 
         if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
@@ -77,21 +68,12 @@ public class BookingService {
             throw new CapacityExceededException();
         }
 
-        double totalPrice = calculateTotalPrice(booking, extraGuests);
-        booking.setTotalPrice(totalPrice);
-
-        boolean updated = bookingDAO.update(booking);
-
-        if (updated) {
-            logger.info("Booking updated successfully: bookingId=" + booking.getId());
-        } else {
-            logger.warning("Booking update failed for guestId=" + booking.getGuestId());
-        }
-
-        return updated;
+        booking.setTotalPrice(calculateTotalPrice(booking, extraGuests));
+        bookingDAO.update(booking);
+        logger.info("Booking updated successfully: bookingId=" + booking.getId());
     }
 
-    public boolean confirmBooking(Booking booking) throws Exception {
+    public void confirmBooking(Booking booking) throws DAOException, NotFoundException, NotPendingBookingException {
         logger.info("Attempting to confirm booking: bookingId=" + booking.getId());
 
         if (!booking.getStatus().equals("pending")) {
@@ -101,12 +83,10 @@ public class BookingService {
 
         bookingDAO.updateStatus(booking.getId(), "confirmed");
         roomService.markRoomAsOccupied(booking.getRoomId());
-
         logger.info("Booking confirmed successfully: bookingID=" + booking.getId());
-        return true;
     }
 
-    public boolean checkInBooking(Booking booking) throws Exception {
+    public void checkInBooking(Booking booking) throws DAOException, NotFoundException, NotConfirmedBookingException, InvalidCheckInDateException {
         logger.info("Attempting to check-in booking: bookingId=" + booking.getId());
 
         if (!booking.getStatus().equals("confirmed")) {
@@ -121,26 +101,23 @@ public class BookingService {
         }
 
         bookingDAO.updateStatus(booking.getId(), "checked_in");
-
         logger.info("Booking checked-in successfully: bookingID=" + booking.getId());
-        return true;
     }
 
-    public boolean checkOutBooking(Booking booking) throws Exception{
+    public void checkOutBooking(Booking booking) throws DAOException, NotFoundException, NotCheckedInBookingException {
         logger.info("Attempting to check-out booking: bookingId=" + booking.getId());
 
         if (!booking.getStatus().equals("checked_in")) {
             logger.warning("Cannot check-out booking not checked-in: bookingId=" + booking.getId());
             throw new NotCheckedInBookingException();
         }
+
         bookingDAO.updateStatus(booking.getId(), "checked_out");
         roomService.markRoomAsAvailable(booking.getRoomId());
-
         logger.info("Booking checked-out successfully: bookingID=" + booking.getId());
-        return true;
     }
 
-    public boolean cancelBooking(Booking booking) throws Exception {
+    public void cancelBooking(Booking booking) throws DAOException, NotFoundException, CannotCancelBookingException {
         logger.info("Attempting to cancel booking: bookingId=" + booking.getId());
 
         if (booking.getStatus().equals("checked_in") || booking.getStatus().equals("checked_out")) {
@@ -154,12 +131,10 @@ public class BookingService {
 
         bookingDAO.updateStatus(booking.getId(), "cancelled");
         roomService.markRoomAsAvailable(booking.getRoomId());
-
         logger.info("Booking cancelled successfully: bookingID=" + booking.getId());
-        return true;
     }
 
-    public boolean isRoomAvailable(int roomId, Date checkIn, Date checkOut, Integer bookingIdToIgnore) {
+    public boolean isRoomAvailable(int roomId, Date checkIn, Date checkOut, Integer bookingIdToIgnore) throws DAOException {
         List<Booking> overlaps = bookingDAO.getOverlappingBookings(roomId, checkIn, checkOut, bookingIdToIgnore);
         return overlaps.isEmpty();
     }
@@ -169,7 +144,7 @@ public class BookingService {
         return checkIn.before(checkOut) && checkOut.after(now);
     }
 
-    public double calculateTotalPrice(Booking booking, int extraGuests) throws Exception {
+    public double calculateTotalPrice(Booking booking, int extraGuests) throws InvalidDateRangeException {
         double pricePerNight = roomService.getRoomPricePerNight(booking.getRoomId());
 
         long diffInMs = booking.getCheckOut().getTime() - booking.getCheckIn().getTime();
@@ -194,7 +169,7 @@ public class BookingService {
         return extraGuests <= roomService.getRoomCapacity(roomId);
     }
 
-    public boolean hasGuestActiveBooking(int guestId) {
+    public boolean hasGuestActiveBooking(int guestId) throws DAOException {
         List<Booking> activeBookings = bookingDAO.getBookingsByGuestAndStatus(guestId, Arrays.asList("pending", "confirmed", "checked_in"));
         return !activeBookings.isEmpty();
     }
