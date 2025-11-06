@@ -1,6 +1,7 @@
 package service;
 
 import dao.BookingDAO;
+import exception.*;
 import model.Booking;
 
 import java.util.Arrays;
@@ -21,18 +22,18 @@ public class BookingService {
 
     public boolean createBooking(Booking booking) throws Exception {
         if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
-            throw new Exception("Cannot create booking: booking date is not valid. Please select a valid date.");
+            throw new BookingDateInvalidException();
         }
         if (!isRoomAvailable(booking.getRoomId(), booking.getCheckIn(), booking.getCheckOut(), null)) {
-            throw new Exception("Cannot create booking: booking date overlaps other booking. Please select a valid date.");
+            throw new RoomUnavailableException();
         }
         if (hasGuestActiveBooking(booking.getGuestId())) {
-            throw new Exception("Cannot create booking: guest has already an active booking.");
+            throw new GuestHasActiveBookingException();
         }
 
         int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(booking.getRoomId()));
         if (!verifyCapacity(extraGuests, booking.getRoomId())) {
-            throw new Exception("The number of guests exceeds the allowed extra guests capacity");
+            throw new CapacityExceededException();
         }
 
         double totalPrice = calculateTotalPrice(booking, extraGuests);
@@ -43,15 +44,15 @@ public class BookingService {
 
     public boolean updateBooking(Booking booking) throws Exception {
         if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
-            throw new Exception("Cannot create booking: booking date is not valid. Please select a valid date.");
+            throw new BookingDateInvalidException();
         }
         if (!isRoomAvailable(booking.getRoomId(), booking.getCheckIn(), booking.getCheckOut(), booking.getId())) {
-            throw new Exception("Cannot create booking: booking date overlaps other booking. Please select a valid date.");
+            throw new RoomUnavailableException();
         }
 
         int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(booking.getRoomId()));
         if (!verifyCapacity(extraGuests, booking.getRoomId())) {
-            throw new Exception("The number of guests exceeds the allowed extra guests capacity");
+            throw new CapacityExceededException();
         }
 
         double totalPrice = calculateTotalPrice(booking, extraGuests);
@@ -62,7 +63,7 @@ public class BookingService {
 
     public boolean confirmBooking(Booking booking) throws Exception {
         if (!booking.getStatus().equals("pending")) {
-            throw new Exception("Only pending bookings can be confirmed.");
+            throw new NotPendingBookingException();
         }
         bookingDAO.updateStatus(booking.getId(), "confirmed");
         roomService.markRoomAsOccupied(booking.getRoomId());
@@ -71,12 +72,12 @@ public class BookingService {
 
     public boolean checkInBooking(Booking booking) throws Exception {
         if (!booking.getStatus().equals("confirmed")) {
-            throw new Exception("Cannot check-in: booking must be confirmed first.");
+            throw new NotConfirmedBookingException();
         }
 
         Date today = new Date();
         if (today.before(booking.getCheckIn()) || today.after(booking.getCheckOut())) {
-            throw new Exception("Cannot check-in: outside of valid date range.");
+            throw new InvalidCheckInDateException();
         }
 
         bookingDAO.updateStatus(booking.getId(), "checked_in");
@@ -85,7 +86,7 @@ public class BookingService {
 
     public boolean checkOutBooking(Booking booking) throws Exception{
         if (!booking.getStatus().equals("checked_in")) {
-            throw new Exception("Cannot check-out: booking is not checked-in yet. Please check-in before checking out.");
+            throw new NotCheckedInBookingException();
         }
         bookingDAO.updateStatus(booking.getId(), "checked_out");
         roomService.markRoomAsAvailable(booking.getRoomId());
@@ -94,10 +95,10 @@ public class BookingService {
 
     public boolean cancelBooking(Booking booking) throws Exception {
         if (booking.getStatus().equals("checked_in") || booking.getStatus().equals("checked_out")) {
-            throw new Exception("Cannot cancel booking after check-in");
+            throw new CannotCancelBookingException(true, false);
         }
         if (!canCancel(booking)) {
-            throw new Exception("Cannot cancel booking 24 hours before check-in");
+            throw new CannotCancelBookingException(false, true);
         }
 
         bookingDAO.updateStatus(booking.getId(), "cancelled");
@@ -122,7 +123,7 @@ public class BookingService {
         long nights = diffInMs / (1000 * 60 * 60 * 24);
 
         if (nights <= 0) {
-            throw new Exception("Invalid date range: check-in and check-out must be at least one night apart.");
+            throw new InvalidDateRangeException();
         }
 
         double basePrice = pricePerNight * nights;

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import exception.BookingException;
 import model.Booking;
 import service.BookingService;
 
@@ -88,15 +89,14 @@ public class BookingController implements HttpHandler {
             boolean created = bookingService.createBooking(booking);
 
             if (created) {
-                String success = gson.toJson("Booking created successfully");
-                sendResponse(exchange, 201, success); // 201: Created
+                sendResponse(exchange, 201, "Booking created successfully"); // 201: Created
             } else {
-                String fail = gson.toJson("Booking could not be created");
-                sendResponse(exchange, 400, fail);
+                sendResponse(exchange, 400, "Booking could not be created");
             }
+        } catch (BookingException e) {
+            handleBusinessException(exchange, e);
         } catch (Exception e) {
-            String error = gson.toJson("Error creating booking: " + e.getMessage());
-            sendResponse(exchange, 500, error);
+            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
         }
     }
 
@@ -123,8 +123,10 @@ public class BookingController implements HttpHandler {
             } else {
                 sendResponse(exchange, 400, gson.toJson("Booking could not be updated"));
             }
+        } catch (BookingException e) {
+            handleBusinessException(exchange, e);
         } catch (Exception e) {
-            sendResponse(exchange, 500, gson.toJson("Error updating booking: " + e.getMessage()));
+            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
         }
     }
 
@@ -139,8 +141,10 @@ public class BookingController implements HttpHandler {
             } else {
                 sendResponse(exchange, 400, gson.toJson("Could not confirm booking"));
             }
+        } catch (BookingException e) {
+            handleBusinessException(exchange, e);
         } catch (Exception e) {
-            sendResponse(exchange, 500, gson.toJson("Error confirming booking: " + e.getMessage()));
+            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
         }
     }
 
@@ -155,8 +159,10 @@ public class BookingController implements HttpHandler {
             } else {
                 sendResponse(exchange, 400, gson.toJson("Could not check in"));
             }
+        } catch (BookingException e) {
+            handleBusinessException(exchange, e);
         } catch (Exception e) {
-            sendResponse(exchange, 500, gson.toJson("Error checking in: " + e.getMessage()));
+            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
         }
     }
 
@@ -171,8 +177,10 @@ public class BookingController implements HttpHandler {
             } else {
                 sendResponse(exchange, 400, gson.toJson("Could not check out"));
             }
+        } catch (BookingException e) {
+            handleBusinessException(exchange, e);
         } catch (Exception e) {
-            sendResponse(exchange, 500, gson.toJson("Error checking out: " + e.getMessage()));
+            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
         }
     }
 
@@ -187,8 +195,19 @@ public class BookingController implements HttpHandler {
             } else {
                 sendResponse(exchange, 400, gson.toJson("Could not cancel booking"));
             }
+        } catch (BookingException e) {
+            handleBusinessException(exchange, e);
         } catch (Exception e) {
-            sendResponse(exchange, 500, gson.toJson("Error cancelling booking: " + e.getMessage()));
+            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+        }
+    }
+
+    private void handleBusinessException(HttpExchange exchange, BookingException e) throws IOException {
+        String message = gson.toJson(e.getMessage());
+        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+        exchange.sendResponseHeaders(400, message.getBytes().length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(message.getBytes());
         }
     }
 
