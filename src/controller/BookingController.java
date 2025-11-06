@@ -22,6 +22,9 @@ public class BookingController implements HttpHandler {
         String method = exchange.getRequestMethod();
 
         switch (method) {
+            case "POST":
+                handleCreateBooking(exchange);
+                break;
             case "GET":
                 String path = exchange.getRequestURI().getPath();
                 if (path.matches("/api/bookings/\\d+")) {
@@ -30,8 +33,10 @@ public class BookingController implements HttpHandler {
                     handleGetAllBookings(exchange);
                 }
                 break;
-            case "POST":
-                handleCreateBooking(exchange);
+            case "PUT":
+                handleUpdateBooking(exchange);
+                break;
+            case "DELETE":
                 break;
             default:
                 sendResponse(exchange, 405, "Method not allowed");
@@ -70,8 +75,6 @@ public class BookingController implements HttpHandler {
     private void handleCreateBooking(HttpExchange exchange) throws IOException {
         try {
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
-            System.out.println("Reading request...");
-            System.out.println(requestBody);
             Booking booking = gson.fromJson(requestBody, Booking.class);
             boolean created = bookingService.createBooking(booking);
 
@@ -85,6 +88,34 @@ public class BookingController implements HttpHandler {
         } catch (Exception e) {
             String error = gson.toJson("Error creating booking: " + e.getMessage());
             sendResponse(exchange, 500, error);
+        }
+    }
+
+    private void handleUpdateBooking(HttpExchange exchange) throws IOException {
+        try {
+            String path = exchange.getRequestURI().getPath();
+            String[] segments = path.split("/");
+            if (segments.length < 4) {
+                sendResponse(exchange, 400, gson.toJson("Booking ID is missing in the URL"));
+                return;
+            }
+
+            int bookingId = Integer.parseInt(segments[3]);
+
+            String requestBody = new String(exchange.getRequestBody().readAllBytes());
+            Booking updatedBooking = gson.fromJson(requestBody, Booking.class);
+
+            updatedBooking.setId(bookingId);
+
+            boolean success = bookingService.updateBooking(updatedBooking);
+
+            if (success) {
+                sendResponse(exchange, 200, gson.toJson("Booking updated successfully"));
+            } else {
+                sendResponse(exchange, 400, gson.toJson("Booking could not be updated"));
+            }
+        } catch (Exception e) {
+            sendResponse(exchange, 500, gson.toJson("Error updating booking: " + e.getMessage()));
         }
     }
 

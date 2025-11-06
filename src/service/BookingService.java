@@ -23,17 +23,41 @@ public class BookingService {
         if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
             throw new Exception("Cannot create booking: booking date is not valid. Please select a valid date.");
         }
-        if (!isRoomAvailable(booking.getRoomId(), booking.getCheckIn(), booking.getCheckOut())) {
+        if (!isRoomAvailable(booking.getRoomId(), booking.getCheckIn(), booking.getCheckOut(), null)) {
             throw new Exception("Cannot create booking: booking date overlaps other booking. Please select a valid date.");
         }
         if (hasGuestActiveBooking(booking.getGuestId())) {
             throw new Exception("Cannot create booking: guest has already an active booking.");
         }
 
-        double totalPrice = calculateTotalPrice(booking);
+        int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(booking.getRoomId()));
+        if (!verifyCapacity(extraGuests, booking.getRoomId())) {
+            throw new Exception("The number of guests exceeds the allowed extra guests capacity");
+        }
+
+        double totalPrice = calculateTotalPrice(booking, extraGuests);
         booking.setTotalPrice(totalPrice);
 
         return bookingDAO.insert(booking);
+    }
+
+    public boolean updateBooking(Booking booking) throws Exception {
+        if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
+            throw new Exception("Cannot create booking: booking date is not valid. Please select a valid date.");
+        }
+        if (!isRoomAvailable(booking.getRoomId(), booking.getCheckIn(), booking.getCheckOut(), booking.getId())) {
+            throw new Exception("Cannot create booking: booking date overlaps other booking. Please select a valid date.");
+        }
+
+        int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(booking.getRoomId()));
+        if (!verifyCapacity(extraGuests, booking.getRoomId())) {
+            throw new Exception("The number of guests exceeds the allowed extra guests capacity");
+        }
+
+        double totalPrice = calculateTotalPrice(booking, extraGuests);
+        booking.setTotalPrice(totalPrice);
+
+        return bookingDAO.update(booking);
     }
 
     public boolean confirmBooking(Booking booking) throws Exception {
@@ -81,8 +105,8 @@ public class BookingService {
         return true;
     }
 
-    public boolean isRoomAvailable(int roomId, Date checkIn, Date checkOut) {
-        List<Booking> overlaps = bookingDAO.getOverlappingBookings(roomId, checkIn, checkOut);
+    public boolean isRoomAvailable(int roomId, Date checkIn, Date checkOut, Integer bookingIdToIgnore) {
+        List<Booking> overlaps = bookingDAO.getOverlappingBookings(roomId, checkIn, checkOut, bookingIdToIgnore);
         return overlaps.isEmpty();
     }
 
@@ -91,9 +115,8 @@ public class BookingService {
         return checkIn.before(checkOut) && checkOut.after(now);
     }
 
-    public double calculateTotalPrice(Booking booking) throws Exception {
-        int roomId = booking.getRoomId();
-        double pricePerNight = roomService.getRoomPricePerNight(roomId);
+    public double calculateTotalPrice(Booking booking, int extraGuests) throws Exception {
+        double pricePerNight = roomService.getRoomPricePerNight(booking.getRoomId());
 
         long diffInMs = booking.getCheckOut().getTime() - booking.getCheckIn().getTime();
         long nights = diffInMs / (1000 * 60 * 60 * 24);
@@ -102,14 +125,12 @@ public class BookingService {
             throw new Exception("Invalid date range: check-in and check-out must be at least one night apart.");
         }
 
-        int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(roomId));
-
-        if (!verifyCapacity(extraGuests, roomId)) {
-            throw new Exception("The number of guests exceeds the allowed extra guests capacity");
+        double basePrice = pricePerNight * nights;
+        if (extraGuests == 0) {
+            return basePrice;
         }
 
-        double basePrice = pricePerNight * nights;
-        double extraGuestPricePerNight = roomService.getRoomExtraGuestPricePerNight(roomId);
+        double extraGuestPricePerNight = roomService.getRoomExtraGuestPricePerNight(booking.getRoomId());
         double extraPrice = extraGuests * extraGuestPricePerNight * nights;
 
         return basePrice + extraPrice;
@@ -121,6 +142,7 @@ public class BookingService {
 
     public boolean hasGuestActiveBooking(int guestId) {
         List<Booking> activeBookings = bookingDAO.getBookingsByGuestAndStatus(guestId, Arrays.asList("pending", "confirmed", "checked_in"));
+
         return !activeBookings.isEmpty();
     }
 

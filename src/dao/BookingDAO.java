@@ -89,9 +89,13 @@ public class BookingDAO {
         return bookings;
     }
 
-    public List<Booking> getOverlappingBookings(int roomId, Date checkIn, Date checkOut) {
+    public List<Booking> getOverlappingBookings(int roomId, Date checkIn, Date checkOut, Integer bookingIdToExclude) {
         List<Booking> overlappingBookings = new ArrayList<>();
         String sql = "SELECT * FROM booking WHERE room_id=? AND (check_in < ? AND check_out > ?)";
+
+        if (bookingIdToExclude != null) {
+            sql += " AND id != ?";
+        }
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -99,6 +103,10 @@ public class BookingDAO {
             stmt.setInt(1, roomId);
             stmt.setDate(2, new java.sql.Date(checkOut.getTime()));
             stmt.setDate(3, new java.sql.Date(checkIn.getTime()));
+
+            if (bookingIdToExclude != null) {
+                stmt.setInt(4, bookingIdToExclude);
+            }
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
