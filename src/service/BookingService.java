@@ -23,7 +23,7 @@ public class BookingService {
         return bookingDAO.getAll();
     }
 
-    public void createBooking(Booking booking) throws DAOException, BookingDateInvalidException, RoomUnavailableException, GuestHasActiveBookingException, CapacityExceededException, InvalidDateRangeException {
+    public void createBooking(Booking booking) throws DAOException, NotFoundException, BookingDateInvalidException, RoomUnavailableException, GuestHasActiveBookingException, CapacityExceededException, InvalidDateRangeException {
         logger.info("Attempting to create booking for guestId=" + booking.getGuestId() + ", roomId=" + booking.getRoomId() + ", checkIn=" + booking.getCheckIn() + ", checkOut=" + booking.getCheckOut());
 
         if (!isDateValid(booking.getCheckIn(), booking.getCheckOut())) {
@@ -39,7 +39,7 @@ public class BookingService {
             throw new GuestHasActiveBookingException();
         }
 
-        int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(booking.getRoomId()));
+        int extraGuests = roomService.getAllowedExtraGuests(booking.getRoomId());
         if (!verifyCapacity(extraGuests, booking.getRoomId())) {
             logger.warning("Capacity exceeded: roomId=" + booking.getRoomId() + ", extraGuests=" + extraGuests);
             throw new CapacityExceededException();
@@ -62,7 +62,7 @@ public class BookingService {
             throw new RoomUnavailableException();
         }
 
-        int extraGuests = Math.max(0, booking.getNumGuests() - roomService.getRoomCapacity(booking.getRoomId()));
+        int extraGuests = roomService.getAllowedExtraGuests(booking.getRoomId());
         if (!verifyCapacity(extraGuests, booking.getRoomId())) {
             logger.warning("Capacity exceeded: roomId=" + booking.getRoomId() + ", extraGuests=" + extraGuests);
             throw new CapacityExceededException();
@@ -144,7 +144,7 @@ public class BookingService {
         return checkIn.before(checkOut) && checkOut.after(now);
     }
 
-    public double calculateTotalPrice(Booking booking, int extraGuests) throws InvalidDateRangeException {
+    public double calculateTotalPrice(Booking booking, int extraGuests) throws DAOException, NotFoundException, InvalidDateRangeException {
         double pricePerNight = roomService.getRoomPricePerNight(booking.getRoomId());
 
         long diffInMs = booking.getCheckOut().getTime() - booking.getCheckIn().getTime();
@@ -165,7 +165,7 @@ public class BookingService {
         return basePrice + extraPrice;
     }
 
-    public boolean verifyCapacity(int extraGuests, int roomId) {
+    public boolean verifyCapacity(int extraGuests, int roomId) throws DAOException, NotFoundException {
         return extraGuests <= roomService.getRoomCapacity(roomId);
     }
 

@@ -24,7 +24,6 @@ public class BookingDAO {
             stmt.setInt(1, booking.getRoomId());
             stmt.setInt(2, booking.getGuestId());
 
-            // Convert java.util.Date to java.sql.Date
             stmt.setDate(3, new java.sql.Date(booking.getCheckIn().getTime()));
             stmt.setDate(4, new java.sql.Date(booking.getCheckOut().getTime()));
 
