@@ -8,11 +8,11 @@ public class Room {
     private double extraGuestPricePerNight;
     private int capacity;
     private int allowedExtraGuests;
-    private String status;
+    private RoomStatus status;
 
     public Room() {}
 
-    public Room(String number, String type, double pricePerNight, double extraGuestPricePerNight, int capacity, int allowedExtraGuests, String status) {
+    public Room(String number, String type, double pricePerNight, double extraGuestPricePerNight, int capacity, int allowedExtraGuests, RoomStatus status) {
         this.number = number;
         this.type = type;
         this.pricePerNight = pricePerNight;
@@ -22,7 +22,7 @@ public class Room {
         this.status = status;
     }
 
-    public Room(int id, String number, String type, double pricePerNight, double extraGuestPricePerNight, int capacity, int allowedExtraGuests, String status) {
+    public Room(int id, String number, String type, double pricePerNight, double extraGuestPricePerNight, int capacity, int allowedExtraGuests, RoomStatus status) {
         this.id = id;
         this.number = number;
         this.type = type;
@@ -83,10 +83,10 @@ public class Room {
         this.allowedExtraGuests = allowedExtraGuests;
     }
 
-    public String getStatus() {
+    public RoomStatus getStatus() {
         return status;
     }
-    public void setStatus(String status) {
+    public void setStatus(RoomStatus status) {
         this.status = status;
     }
 

@@ -1,9 +1,11 @@
 package service;
 
 import dao.BookingDAO;
+import dao.RoomDAO;
 import exception.*;
 import model.Booking;
 import model.BookingStatus;
+import model.RoomStatus;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -13,8 +15,16 @@ import java.util.logging.Level;
 
 public class BookingService {
     private final static Logger logger = Logger.getLogger(BookingService.class.getName());
-    private final BookingDAO bookingDAO = new BookingDAO();
+    private final BookingDAO bookingDAO;
     private final RoomService roomService = new RoomService();
+
+    public BookingService(BookingDAO bookingDAO) {
+        this.bookingDAO = bookingDAO;
+    }
+
+    public BookingService() {
+        this(new BookingDAO());
+    }
 
     public Booking getBookingById(int id) throws DAOException, NotFoundException {
         return bookingDAO.findById(id);
@@ -75,7 +85,7 @@ public class BookingService {
         logger.info("Booking updated successfully: bookingId=" + booking.getId());
     }
 
-    public void confirmBooking(Booking booking) throws DAOException, NotFoundException, NotPendingBookingException {
+    public void confirmBooking(Booking booking) throws DAOException, NotFoundException, NotPendingBookingException, InvalidStatusException {
         logger.info("Attempting to confirm booking: bookingId=" + booking.getId());
 
         if (booking.getStatus() != BookingStatus.PENDING) {
@@ -84,7 +94,7 @@ public class BookingService {
         }
 
         bookingDAO.updateStatus(booking.getId(), BookingStatus.CONFIRMED);
-        roomService.markRoomAsOccupied(booking.getRoomId());
+        roomService.updateRoomStatus(booking.getRoomId(), RoomStatus.OCCUPIED.name());
         logger.info("Booking confirmed successfully: bookingID=" + booking.getId());
     }
 
@@ -106,7 +116,7 @@ public class BookingService {
         logger.info("Booking checked-in successfully: bookingID=" + booking.getId());
     }
 
-    public void checkOutBooking(Booking booking) throws DAOException, NotFoundException, NotCheckedInBookingException {
+    public void checkOutBooking(Booking booking) throws DAOException, NotFoundException, NotCheckedInBookingException, InvalidStatusException {
         logger.info("Attempting to check-out booking: bookingId=" + booking.getId());
 
         if (booking.getStatus() != BookingStatus.CHECKED_IN) {
@@ -115,11 +125,11 @@ public class BookingService {
         }
 
         bookingDAO.updateStatus(booking.getId(), BookingStatus.CHECKED_OUT);
-        roomService.markRoomAsAvailable(booking.getRoomId());
+        roomService.updateRoomStatus(booking.getRoomId(), RoomStatus.AVAILABLE.name());
         logger.info("Booking checked-out successfully: bookingID=" + booking.getId());
     }
 
-    public void cancelBooking(Booking booking) throws DAOException, NotFoundException, CannotCancelBookingException {
+    public void cancelBooking(Booking booking) throws DAOException, NotFoundException, CannotCancelBookingException, InvalidStatusException {
         logger.info("Attempting to cancel booking: bookingId=" + booking.getId());
 
         if (booking.getStatus() == BookingStatus.CHECKED_IN || booking.getStatus() == BookingStatus.CHECKED_OUT) {
@@ -132,22 +142,21 @@ public class BookingService {
         }
 
         bookingDAO.updateStatus(booking.getId(), BookingStatus.CANCELLED);
-        roomService.markRoomAsAvailable(booking.getRoomId());
+        roomService.updateRoomStatus(booking.getRoomId(), RoomStatus.AVAILABLE.name());
         logger.info("Booking cancelled successfully: bookingID=" + booking.getId());
     }
 
-    public void updateBookingStatus(int id, String status) throws DAOException, NotFoundException, BookingException {
-        if (!BookingStatus.isValid(status)) {
-            throw new InvalidBookingStatusException(status);
-        }
-
+    public void updateBookingStatus(int id, String status) throws DAOException, NotFoundException, BookingException, InvalidStatusException {
+        logger.info("Attempting to update booking status: bookingId=" + id + ", newStatus=" + status);
         BookingStatus newStatus = BookingStatus.fromString(status);
         bookingDAO.updateStatus(id, newStatus);
         logger.info("Booking status updated successfully: bookingId=" + id + ", newStatus=" + newStatus);
     }
 
     public void deleteBooking(int id) throws DAOException, NotFoundException {
+        logger.info("Attempting to delete booking: bookingId=" + id);
         bookingDAO.delete(id);
+        logger.info("Booking deleted successfully: bookingId=" + id);
     }
 
     public boolean isRoomAvailable(int roomId, Date checkIn, Date checkOut, Integer bookingIdToIgnore) throws DAOException {

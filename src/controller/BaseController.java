@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import exception.DAOException;
+import exception.InvalidStatusException;
 import exception.NotFoundException;
 
 import java.io.IOException;
@@ -46,6 +47,17 @@ public abstract class BaseController implements HttpHandler {
 
     protected void handleValidationError(HttpExchange exchange, Exception e) throws IOException {
         logger.warning("Validation error: " + e.getMessage());
+        sendJsonResponse(exchange, 400, Map.of("error", e.getMessage()));
+    }
+
+    protected void handleInvalidStatus(HttpExchange exchange, Exception e) throws IOException {
+        if (e instanceof InvalidStatusException ex) {
+            logger.warning(String.format(
+                    "Invalid status value received for entity '%s': '%s'", ex.getEntity(), ex.getInvalidValue()
+            ));
+        } else {
+            logger.warning("Invalid status value received: " + e.getMessage());
+        }
         sendJsonResponse(exchange, 400, Map.of("error", e.getMessage()));
     }
 

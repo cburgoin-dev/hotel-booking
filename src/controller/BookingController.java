@@ -1,12 +1,10 @@
 package controller;
 
 import com.sun.net.httpserver.HttpExchange;
-import exception.BookingException;
-import exception.DAOException;
-import exception.NotFoundException;
-import exception.RoomUnavailableException;
+import exception.*;
 import model.Booking;
 import service.BookingService;
+import service.RoomService;
 import util.SecurityUtil;
 
 import java.io.IOException;
@@ -14,7 +12,15 @@ import java.util.Map;
 
 public class BookingController extends BaseController {
     private static final String BASE_PATH = "/api/bookings";
-    private final BookingService bookingService = new BookingService();
+    private final BookingService bookingService;
+
+    public BookingController() {
+        this.bookingService = new BookingService();
+    }
+
+    public BookingController(BookingService bookingService) {
+        this.bookingService = bookingService;
+    }
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -58,7 +64,7 @@ public class BookingController extends BaseController {
                     break;
 
                 case "PUT":
-                    if (path.matches(BASE_PATH + "\\d+$")) {
+                    if (path.matches(BASE_PATH + "/\\d+$")) {
                         handleUpdate(exchange);
                     }
                     break;
@@ -169,7 +175,8 @@ public class BookingController extends BaseController {
 
             logger.info("Booking confirmed successfully: ID=" + id);
             sendJsonResponse(exchange, 200, Map.of("message", "Booking confirmed successfully", "booking", booking));
-
+        } catch (InvalidStatusException e) {
+            handleInvalidStatus(exchange, e);
         } catch (BookingException e) {
             handleValidationError(exchange, e);
         } catch (NotFoundException e) {
@@ -192,7 +199,6 @@ public class BookingController extends BaseController {
 
             logger.info("Booking checked-in successfully: ID=" + id);
             sendJsonResponse(exchange, 200, Map.of("message", "Booking checked-in successfully", "booking", booking));
-
         } catch (BookingException e) {
             handleValidationError(exchange, e);
         } catch (NotFoundException e) {
@@ -215,7 +221,8 @@ public class BookingController extends BaseController {
 
             logger.info("Booking checked-out successfully: ID=" + id);
             sendJsonResponse(exchange, 200, Map.of("message", "Booking checked-out successfully", "booking", booking));
-
+        } catch (InvalidStatusException e) {
+            handleInvalidStatus(exchange, e);
         } catch (BookingException e) {
             handleValidationError(exchange, e);
         } catch (NotFoundException e) {
@@ -238,33 +245,10 @@ public class BookingController extends BaseController {
 
             logger.info("Booking cancelled successfully: ID=" + id);
             sendJsonResponse(exchange, 200, Map.of("message", "Booking cancelled successfully", "booking", booking));
-
+        } catch (InvalidStatusException e) {
+            handleInvalidStatus(exchange, e);
         } catch (BookingException e) {
             handleValidationError(exchange, e);
-        } catch (NotFoundException e) {
-            handleNotFound(exchange, e);
-        } catch (DAOException e) {
-            handleDAOException(exchange, e);
-        }
-    }
-
-    private void handleDelete(HttpExchange exchange) throws IOException {
-        try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
-            int id = extractIdFromPath(exchange.getRequestURI().getPath());
-            if (id <= 0) {
-                logger.warning("Invalid booking ID received in DELETE request: " + id);
-                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
-                return;
-            }
-            bookingService.deleteBooking(id);
-
-            logger.info("Booking permanently deleted: ID=" + id);
-            sendJsonResponse(exchange, 200, Map.of("message", "Booking permanently deleted"));
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);
         } catch (DAOException e) {
@@ -291,10 +275,36 @@ public class BookingController extends BaseController {
 
             bookingService.updateBookingStatus(id, newStatus);
 
-            logger.info("Booking status manually changed: ID=" + id + " -> " + newStatus);
-            sendJsonResponse(exchange, 200, Map.of("message", "Booking status manually updated", "status", newStatus));
+            logger.info("Booking status changed: ID=" + id + " -> " + newStatus);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking status updated", "status", newStatus));
+        } catch (InvalidStatusException e) {
+            handleInvalidStatus(exchange, e);
         } catch (BookingException e) {
             handleValidationError(exchange, e);
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
+        } catch (DAOException e) {
+            handleDAOException(exchange, e);
+        }
+    }
+
+    private void handleDelete(HttpExchange exchange) throws IOException {
+        try {
+            if (!SecurityUtil.isAdmin(exchange)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
+                return;
+            }
+
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in DELETE request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
+            bookingService.deleteBooking(id);
+
+            logger.info("Booking permanently deleted: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking permanently deleted"));
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);
         } catch (DAOException e) {

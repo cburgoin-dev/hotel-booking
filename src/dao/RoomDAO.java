@@ -2,7 +2,11 @@ package dao;
 
 import exception.DAOException;
 import exception.NotFoundException;
+import model.Booking;
+import model.BookingStatus;
 import model.Room;
+import model.RoomStatus;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +27,7 @@ public class RoomDAO {
             stmt.setDouble(4, room.getExtraGuestPricePerNight());
             stmt.setInt(5, room.getCapacity());
             stmt.setInt(6, room.getAllowedExtraGuests());
-            stmt.setString(7, room.getStatus());
+            stmt.setString(7, room.getStatus().name());
 
             int rows = stmt.executeUpdate();
             if (rows == 0) {
@@ -45,16 +49,7 @@ public class RoomDAO {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    Room room = new Room(
-                            rs.getInt("id"),
-                            rs.getString("number"),
-                            rs.getString("type"),
-                            rs.getDouble("price_per_night"),
-                            rs.getDouble("extra_guest_price_per_night"),
-                            rs.getInt("capacity"),
-                            rs.getInt("allowed_extra_guests"),
-                            rs.getString("status")
-                    );
+                    Room room = mapResultSetToRoom(rs);
                     logger.fine("Found room by ID: " + id);
                     return room;
                 } else{
@@ -68,6 +63,25 @@ public class RoomDAO {
         }
     }
 
+    public Room findByNumber(String number) throws DAOException, NotFoundException {
+        String sql = "SELECT * FROM room WHERE number=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, number);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToRoom(rs);
+                } else {
+                    throw new NotFoundException("Room not found with number=" + number);
+                }
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Error finding room by number=" + number, e);
+            throw new DAOException("Error finding room by number=" + number, e);
+        }
+    }
+
     public List<Room> getAll() throws DAOException {
         List<Room> rooms = new ArrayList<>();
         String sql = "SELECT * FROM room";
@@ -77,24 +91,16 @@ public class RoomDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                rooms.add(new Room(
-                        rs.getInt("id"),
-                        rs.getString("number"),
-                        rs.getString("type"),
-                        rs.getDouble("price_per_night"),
-                        rs.getDouble("extra_guest_price_per_night"),
-                        rs.getInt("capacity"),
-                        rs.getInt("allowed_extra_guests"),
-                        rs.getString("status")
-                ));
+                rooms.add(mapResultSetToRoom(rs));
             }
             logger.info("Fetched all rooms, count=" + rooms.size());
-            return rooms;
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error fetching all rooms", e);
             throw new DAOException("Error fetching all rooms", e);
         }
+
+        return rooms;
     }
 
     private <T> T getRoomField(int id, String fieldName, Class<T> type) throws DAOException, NotFoundException {
@@ -105,7 +111,18 @@ public class RoomDAO {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    Object value = rs.getObject(fieldName);
+                    Object value;
+
+                    if (type == Double.class) {
+                        value = rs.getDouble(fieldName);
+                    } else if (type == Integer.class) {
+                        value = rs.getInt(fieldName);
+                    } else if (type == String.class) {
+                        value = rs.getString(fieldName);
+                    } else {
+                        value = rs.getObject(fieldName);
+                    }
+
                     logger.info("Retrieved field '" + fieldName + "' for roomId=" + id);
                     return type.cast(value);
                 } else {
@@ -114,7 +131,7 @@ public class RoomDAO {
                 }
             }
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Database error retrieving field '" + fieldName + "' for roomId" + id, e);
+            logger.log(Level.SEVERE, "Database error retrieving field '" + fieldName + "' for roomId=" + id, e);
             throw new DAOException("Error retrieving field '" + fieldName + "' for room ID=" + id, e);
         }
     }
@@ -146,7 +163,7 @@ public class RoomDAO {
             stmt.setDouble(4, room.getExtraGuestPricePerNight());
             stmt.setInt(5, room.getCapacity());
             stmt.setInt(6, room.getAllowedExtraGuests());
-            stmt.setString(7, room.getStatus());
+            stmt.setString(7, room.getStatus().name());
             stmt.setInt(8, room.getId());
 
             int rows = stmt.executeUpdate();
@@ -162,11 +179,11 @@ public class RoomDAO {
         }
     }
 
-    public void updateStatus(int roomId, String newStatus) throws DAOException, NotFoundException {
+    public void updateStatus(int roomId, RoomStatus newStatus) throws DAOException, NotFoundException {
         String sql = "UPDATE room SET status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, newStatus);
+            stmt.setString(1, newStatus.name());
             stmt.setInt(2, roomId);
 
             int rows = stmt.executeUpdate();
@@ -200,5 +217,18 @@ public class RoomDAO {
             logger.log(Level.SEVERE, "Error deleting room ID=" + id, e);
             throw new DAOException("Error deleting room ID=" + id, e);
         }
+    }
+
+    private Room mapResultSetToRoom(ResultSet rs) throws SQLException {
+        return new Room(
+                rs.getInt("id"),
+                rs.getString("number"),
+                rs.getString("type"),
+                rs.getDouble("price_per_night"),
+                rs.getDouble("extra_guest_price_per_night"),
+                rs.getInt("capacity"),
+                rs.getInt("allowed_extra_guests"),
+                RoomStatus.valueOf(rs.getString("status"))
+        );
     }
 }
