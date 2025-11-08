@@ -12,6 +12,7 @@ public class MainServer {
 
         HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
         server.createContext("/api/bookings", new BookingController());
+        server.createContext("/api/rooms", new RoomController());
         server.setExecutor(null);
         server.start();
 

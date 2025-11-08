@@ -34,6 +34,11 @@ public class SecurityUtil {
         return true;
     }
 
+    public static boolean isAdmin(HttpExchange exchange) throws IOException {
+        String role = exchange.getRequestHeaders().getFirst("Role");
+        return "ADMIN".equalsIgnoreCase(role);
+    }
+
     private static void sendUnauthorizedResponse(HttpExchange exchange, String message) throws IOException {
         String response = "{\"error\": \"" + message + "\"}";
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");

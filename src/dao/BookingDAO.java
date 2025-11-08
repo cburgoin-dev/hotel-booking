@@ -3,6 +3,7 @@ package dao;
 import exception.DAOException;
 import exception.NotFoundException;
 import model.Booking;
+import model.BookingStatus;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -29,7 +30,7 @@ public class BookingDAO {
 
             stmt.setDouble(5, booking.getTotalPrice());
             stmt.setInt(6, booking.getNumGuests());
-            stmt.setString(7, booking.getStatus());
+            stmt.setString(7, booking.getStatus().name());
 
             int rows = stmt.executeUpdate();
             logger.info("Inserted booking: bookingId=" + booking.getId() + ", affectedRows=" + rows);
@@ -48,16 +49,7 @@ public class BookingDAO {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    Booking booking = new Booking(
-                            rs.getInt("id"),
-                            rs.getInt("room_id"),
-                            rs.getInt("guest_id"),
-                            rs.getDate("check_in"),
-                            rs.getDate("check_out"),
-                            rs.getDouble("total_price"),
-                            rs.getInt("num_guests"),
-                            rs.getString("status")
-                    );
+                    Booking booking = mapResultSetToBooking(rs);
                     logger.fine("Found booking by ID: " + id);
                     return booking;
                 } else{
@@ -81,17 +73,7 @@ public class BookingDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                Booking booking = new Booking(
-                        rs.getInt("id"),
-                        rs.getInt("room_id"),
-                        rs.getInt("guest_id"),
-                        rs.getDate("check_in"),
-                        rs.getDate("check_out"),
-                        rs.getDouble("total_price"),
-                        rs.getInt("num_guests"),
-                        rs.getString("status")
-                );
-                bookings.add(booking);
+                bookings.add(mapResultSetToBooking(rs));
             }
             logger.info("Fetched all bookings, count=" + bookings.size());
 
@@ -125,20 +107,11 @@ public class BookingDAO {
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    Booking booking = new Booking(
-                            rs.getInt("id"),
-                            rs.getInt("room_id"),
-                            rs.getInt("guest_id"),
-                            rs.getDate("check_in"),
-                            rs.getDate("check_out"),
-                            rs.getDouble("total_price"),
-                            rs.getInt("num_guests"),
-                            rs.getString("status")
-                    );
-                    overlappingBookings.add(booking);
+                    overlappingBookings.add(mapResultSetToBooking(rs));
                 }
             }
             logger.info("Fetched overlapping bookings, count=" + overlappingBookings.size());
+
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error fetching overlapping bookings for roomId=" + roomId, e);
             throw new DAOException("Failed to fetch overlapping bookings for roomId=" + roomId, e);
@@ -147,7 +120,7 @@ public class BookingDAO {
         return overlappingBookings;
     }
 
-    public List<Booking> getBookingsByGuestAndStatus(int guestId, List<String> statuses) throws DAOException {
+    public List<Booking> getBookingsByGuestAndStatus(int guestId, List<BookingStatus> statuses) throws DAOException {
         if (statuses == null || statuses.isEmpty()) {
             logger.fine("No statuses provided for guestId=" + guestId + ", returning empty list");
             return Collections.emptyList();
@@ -163,22 +136,12 @@ public class BookingDAO {
 
             stmt.setInt(1, guestId);
             for (int i = 0; i < statuses.size(); i++) {
-                stmt.setString(i + 2, statuses.get(i));
+                stmt.setString(i + 2, statuses.get(i).name());
             }
 
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                Booking booking = new Booking(
-                        rs.getInt("id"),
-                        rs.getInt("room_id"),
-                        rs.getInt("guest_id"),
-                        rs.getDate("check_in"),
-                        rs.getDate("check_out"),
-                        rs.getDouble("total_price"),
-                        rs.getInt("num_guests"),
-                        rs.getString("status")
-                );
-                bookings.add(booking);
+                bookings.add(mapResultSetToBooking(rs));
             }
             logger.info("Fetched bookings for guestId=" + guestId + ", count=" + bookings.size());
 
@@ -201,7 +164,7 @@ public class BookingDAO {
             stmt.setDate(4, new java.sql.Date(booking.getCheckOut().getTime()));
             stmt.setDouble(5, booking.getTotalPrice());
             stmt.setInt(6, booking.getNumGuests());
-            stmt.setString(7, booking.getStatus());
+            stmt.setString(7, booking.getStatus().name());
             stmt.setInt(8, booking.getId());
 
             int rows = stmt.executeUpdate();
@@ -217,11 +180,11 @@ public class BookingDAO {
         }
     }
 
-    public void updateStatus(int bookingId, String newStatus) throws DAOException, NotFoundException {
+    public void updateStatus(int bookingId, BookingStatus newStatus) throws DAOException, NotFoundException {
         String sql = "UPDATE booking SET status=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, newStatus);
+            stmt.setString(1, newStatus.name());
             stmt.setInt(2, bookingId);
 
             int rows = stmt.executeUpdate();
@@ -255,5 +218,18 @@ public class BookingDAO {
             logger.log(Level.SEVERE, "Error deleting booking: bookingId=" + id, e);
             throw new DAOException("Failed to delete booking with ID=" + id, e);
         }
+    }
+
+    private Booking mapResultSetToBooking(ResultSet rs) throws SQLException {
+        return new Booking(
+                rs.getInt("id"),
+                rs.getInt("room_id"),
+                rs.getInt("guest_id"),
+                rs.getDate("check_in"),
+                rs.getDate("check_out"),
+                rs.getDouble("total_price"),
+                rs.getInt("num_guests"),
+                BookingStatus.valueOf(rs.getString("status"))
+        );
     }
 }

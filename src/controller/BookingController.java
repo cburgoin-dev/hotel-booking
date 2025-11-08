@@ -1,27 +1,20 @@
 package controller;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import exception.BookingException;
 import exception.DAOException;
 import exception.NotFoundException;
+import exception.RoomUnavailableException;
 import model.Booking;
 import service.BookingService;
 import util.SecurityUtil;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.util.List;
-import java.util.logging.Logger;
-import java.util.logging.Level;
+import java.util.Map;
 
-public class BookingController implements HttpHandler {
-    private static final Logger logger = Logger.getLogger(BookingController.class.getName()
-    );
+public class BookingController extends BaseController {
+    private static final String BASE_PATH = "/api/bookings";
     private final BookingService bookingService = new BookingService();
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -34,72 +27,86 @@ public class BookingController implements HttpHandler {
 
         logger.info("Received request: " + method + " " + path);
 
-        switch (method) {
-            case "POST":
-                if (path.matches("/api/bookings/?")) {
-                    handleCreateBooking(exchange);
-                } else if (path.matches("/api/bookings/\\d+/confirm")) {
-                    handleConfirmBooking(exchange);
-                } else if (path.matches("/api/bookings/\\d+/checkin")) {
-                    handleCheckInBooking(exchange);
-                } else if (path.matches("/api/bookings/\\d+/checkout")) {
-                    handleCheckOutBooking(exchange);
-                }
-                break;
-            case "GET":
-                if (path.matches("/api/bookings/\\d+")) {
-                    handleGetBookingById(exchange);
-                } else {
-                    handleGetAllBookings(exchange);
-                }
-                break;
-            case "PUT":
-                handleUpdateBooking(exchange);
-                break;
-            case "DELETE":
-                handleCancelBooking(exchange);
-                break;
-            default:
-                sendResponse(exchange, 405, "Method not allowed");
+        try {
+            switch (method) {
+                case "POST":
+                    if (path.matches(BASE_PATH + "/?$")) {
+                        handleCreate(exchange);
+                    }
+                    break;
+
+                case "GET":
+                    if (path.matches(BASE_PATH + "/\\d+")) {
+                        handleGetById(exchange);
+                    } else {
+                        handleGetAll(exchange);
+                    }
+                    break;
+
+                case "PATCH":
+                    if (path.matches(BASE_PATH + "/\\d+/confirm")) {
+                        handleConfirm(exchange);
+                    } else if (path.matches(BASE_PATH + "/\\d+/checkin")) {
+                        handleCheckIn(exchange);
+                    } else if (path.matches(BASE_PATH + "/\\d+/checkout")) {
+                        handleCheckOut(exchange);
+                    } else if (path.matches(BASE_PATH + "/\\d+/cancel")) {
+                        handleCancel(exchange);
+                    } else if (path.matches(BASE_PATH + "/\\d+/status")) {
+                        handleStatusUpdate(exchange);
+                    }
+                    break;
+
+                case "PUT":
+                    if (path.matches(BASE_PATH + "\\d+$")) {
+                        handleUpdate(exchange);
+                    }
+                    break;
+
+                case "DELETE":
+                    if (path.matches(BASE_PATH + "/\\d+")) {
+                        handleDelete(exchange);
+                    }
+                    break;
+
+                default:
+                    sendJsonResponse(exchange, 405, "Method not allowed");
+            }
+        } catch (Exception e) {
+            logger.warning("Unexpected error in BookingController: " + e.getMessage());
+            handleException(exchange, e);
         }
     }
 
-    private void handleGetBookingById(HttpExchange exchange) throws IOException {
+    private void handleGetById(HttpExchange exchange) throws IOException {
         try {
-            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
-            Booking booking = bookingService.getBookingById(bookingId);
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in GET request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
 
-            String jsonResponse = gson.toJson(booking);
-            sendResponse(exchange, 200, jsonResponse);
+            Booking booking = bookingService.getBookingById(id);
+            sendJsonResponse(exchange, 200, booking);
 
         } catch (NotFoundException e) {
-            logger.warning("Resource not found: " + e.getMessage());
-            sendResponse(exchange, 404, gson.toJson(e.getMessage()));
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during getBookingById:", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleGetBookingById", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleGetAllBookings(HttpExchange exchange) throws IOException {
+    private void handleGetAll(HttpExchange exchange) throws IOException {
         try {
-            List<Booking> bookings = bookingService.getAllBookings();
-            String jsonResponse = gson.toJson(bookings);
-            sendResponse(exchange, 200, jsonResponse);
+            sendJsonResponse(exchange, 200, bookingService.getAllBookings());
 
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during getAllBookings", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleGetAllBookings", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleCreateBooking(HttpExchange exchange) throws IOException {
+    private void handleCreate(HttpExchange exchange) throws IOException {
         try {
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
@@ -108,175 +115,190 @@ public class BookingController implements HttpHandler {
             bookingService.createBooking(booking);
 
             logger.info("Booking created successfully: ID=" + booking.getId());
-            sendResponse(exchange, 201, "Booking created successfully"); // 201: Created
+            sendJsonResponse(exchange, 201, Map.of("message", "Booking created successfully", "booking", booking));
 
-        } catch (BookingException e) {
-            logger.warning("Validation error: " + e.getMessage());
-            sendResponse(exchange, 400, gson.toJson(e.getMessage()));
+        } catch (BookingException |
+                 RoomUnavailableException e) {
+            handleValidationError(exchange, e);
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during booking creation", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleCreateBooking", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleUpdateBooking(HttpExchange exchange) throws IOException {
+    private void handleUpdate(HttpExchange exchange) throws IOException {
         try {
-            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in PUT request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
 
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
 
             Booking updatedBooking = gson.fromJson(requestBody, Booking.class);
-            updatedBooking.setId(bookingId);
+            updatedBooking.setId(id);
             bookingService.updateBooking(updatedBooking);
 
-            logger.info("Booking updated successfully: ID=" + bookingId);
-            sendResponse(exchange, 200, gson.toJson("Booking updated successfully"));
+            logger.info("Booking updated successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking updated successfully", "booking", updatedBooking));
 
-        } catch (BookingException e) {
-            logger.warning("Validation error: " + e.getMessage());
-            sendResponse(exchange, 400, gson.toJson(e.getMessage()));
+        } catch (BookingException |
+                 RoomUnavailableException e) {
+            handleValidationError(exchange, e);
         } catch (NotFoundException e) {
-            logger.warning("Resource not found: " + e.getMessage());
-            sendResponse(exchange, 404, gson.toJson(e.getMessage()));
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during booking update", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleUpdateBooking", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleConfirmBooking(HttpExchange exchange) throws IOException {
+    private void handleConfirm(HttpExchange exchange) throws IOException {
         try {
-            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
-            Booking booking = bookingService.getBookingById(bookingId);
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in PATCH request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
+            Booking booking = bookingService.getBookingById(id);
             bookingService.confirmBooking(booking);
 
-            logger.info("Booking confirmed successfully: ID=" + bookingId);
-            sendResponse(exchange, 200, gson.toJson("Booking confirmed successfully"));
+            logger.info("Booking confirmed successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking confirmed successfully", "booking", booking));
 
         } catch (BookingException e) {
-            logger.warning("Validation error: " + e.getMessage());
-            sendResponse(exchange, 400, gson.toJson(e.getMessage()));
+            handleValidationError(exchange, e);
         } catch (NotFoundException e) {
-            logger.warning("Resource not found: " + e.getMessage());
-            sendResponse(exchange, 404, gson.toJson(e.getMessage()));
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during booking confirmation", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleConfirmBooking", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleCheckInBooking(HttpExchange exchange) throws IOException {
+    private void handleCheckIn(HttpExchange exchange) throws IOException {
         try {
-            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
-            Booking booking = bookingService.getBookingById(bookingId);
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in PATCH request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
+            Booking booking = bookingService.getBookingById(id);
             bookingService.checkInBooking(booking);
 
-            logger.info("Booking checked-in successfully: ID=" + bookingId);
-            sendResponse(exchange, 200, gson.toJson("Checked in successfully"));
+            logger.info("Booking checked-in successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking checked-in successfully", "booking", booking));
 
         } catch (BookingException e) {
-            logger.warning("Validation error: " + e.getMessage());
-            sendResponse(exchange, 400, gson.toJson(e.getMessage()));
+            handleValidationError(exchange, e);
         } catch (NotFoundException e) {
-            logger.warning("Resource not found: " + e.getMessage());
-            sendResponse(exchange, 404, gson.toJson(e.getMessage()));
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during booking check-in", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleCheckInBooking", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleCheckOutBooking(HttpExchange exchange) throws IOException {
+    private void handleCheckOut(HttpExchange exchange) throws IOException {
         try {
-            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
-            Booking booking = bookingService.getBookingById(bookingId);
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in PATCH request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
+            Booking booking = bookingService.getBookingById(id);
             bookingService.checkOutBooking(booking);
 
-            logger.info("Booking checked-out successfully: ID=" + bookingId);
-            sendResponse(exchange, 200, gson.toJson("Checked out successfully"));
+            logger.info("Booking checked-out successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking checked-out successfully", "booking", booking));
 
         } catch (BookingException e) {
-            logger.warning("Validation error: " + e.getMessage());
-            sendResponse(exchange, 400, gson.toJson(e.getMessage()));
+            handleValidationError(exchange, e);
         } catch (NotFoundException e) {
-            logger.warning("Resource not found: " + e.getMessage());
-            sendResponse(exchange, 404, gson.toJson(e.getMessage()));
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during booking check-out", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleCheckOutBooking", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleCancelBooking(HttpExchange exchange) throws IOException {
+    private void handleCancel(HttpExchange exchange) throws IOException {
         try {
-            int bookingId = extractBookingId(exchange.getRequestURI().getPath());
-            Booking booking = bookingService.getBookingById(bookingId);
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in PATCH request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
+            Booking booking = bookingService.getBookingById(id);
             bookingService.cancelBooking(booking);
 
-            logger.info("Booking cancelled successfully: ID=" + bookingId);
-            sendResponse(exchange, 200, gson.toJson("Booking cancelled successfully"));
+            logger.info("Booking cancelled successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking cancelled successfully", "booking", booking));
 
         } catch (BookingException e) {
-            logger.warning("Validation error: " + e.getMessage());
-            sendResponse(exchange, 400, gson.toJson(e.getMessage()));
+            handleValidationError(exchange, e);
         } catch (NotFoundException e) {
-            logger.warning("Resource not found: " + e.getMessage());
-            sendResponse(exchange, 404, gson.toJson(e.getMessage()));
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
-            logger.log(Level.SEVERE, "Database error during booking cancellation", e);
-            sendResponse(exchange, 500, gson.toJson("Database error: " + e.getMessage()));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Unexpected error in handleCancelBooking", e);
-            sendResponse(exchange, 500, gson.toJson("Internal server error: " + e.getMessage()));
+            handleDAOException(exchange, e);
         }
     }
 
-    private void handleBusinessException(HttpExchange exchange, BookingException e) throws IOException {
-        String message = gson.toJson(e.getMessage());
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(400, message.getBytes().length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(message.getBytes());
-        }
-    }
-
-    private int extractBookingId(String path) throws BookingException {
-        String[] parts = path.split("/");
-        for (int i = parts.length - 1; i >= 0; i--) {
-            try {
-                int id = Integer.parseInt(parts[i]);
-                logger.fine("Extracted booking ID: " + id);
-                return id;
-            } catch (NumberFormatException ignored) {
-
+    private void handleDelete(HttpExchange exchange) throws IOException {
+        try {
+            if (!SecurityUtil.isAdmin(exchange)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
+                return;
             }
+
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in DELETE request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
+            bookingService.deleteBooking(id);
+
+            logger.info("Booking permanently deleted: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking permanently deleted"));
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
+        } catch (DAOException e) {
+            handleDAOException(exchange, e);
         }
-        logger.warning("Booking ID missing or invalid in URL: " + path);
-        throw new BookingException("Booking ID missing or invalid in URL");
     }
 
-    private void sendResponse(HttpExchange exchange, int statusCode, String response) throws IOException {
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        byte[] bytes = response.getBytes();
-        exchange.sendResponseHeaders(statusCode, bytes.length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(bytes);
+    private void handleStatusUpdate(HttpExchange exchange) throws IOException {
+        try {
+            if (!SecurityUtil.isAdmin(exchange)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
+                return;
+            }
+
+            int id = extractIdFromPath(exchange.getRequestURI().getPath());
+            if (id <= 0) {
+                logger.warning("Invalid booking ID received in PATCH request: " + id);
+                sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+                return;
+            }
+            String requestBody = new String(exchange.getRequestBody().readAllBytes());
+            Map<String, String> body = gson.fromJson(requestBody, Map.class);
+            String newStatus = body.get("status");
+
+            bookingService.updateBookingStatus(id, newStatus);
+
+            logger.info("Booking status manually changed: ID=" + id + " -> " + newStatus);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking status manually updated", "status", newStatus));
+        } catch (BookingException e) {
+            handleValidationError(exchange, e);
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
+        } catch (DAOException e) {
+            handleDAOException(exchange, e);
         }
     }
 }
