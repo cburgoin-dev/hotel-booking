@@ -76,7 +76,7 @@ public class RoomService {
             logger.warning("Invalid room: room is null");
             throw new RoomInvalidException();
         }
-        if (room.getNumber() == null || room.getNumber().isEmpty()) {
+        if (room.getNumber() == null || room.getNumber().isBlank()) {
             logger.warning("Invalid room number: roomNumber is null or empty");
             throw new RoomNumberEmptyException();
         }

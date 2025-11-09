@@ -4,7 +4,6 @@ import com.sun.net.httpserver.HttpExchange;
 import exception.*;
 import model.Booking;
 import service.BookingService;
-import service.RoomService;
 import util.SecurityUtil;
 
 import java.io.IOException;

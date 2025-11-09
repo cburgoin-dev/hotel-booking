@@ -52,7 +52,7 @@ public class BookingDAO {
                     Booking booking = mapResultSetToBooking(rs);
                     logger.fine("Found booking by ID: " + id);
                     return booking;
-                } else{
+                } else {
                     logger.fine("No booking found with ID: " + id);
                     throw new NotFoundException("Failed to find booking by ID=" + id);
                 }

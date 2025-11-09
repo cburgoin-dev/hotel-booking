@@ -52,7 +52,7 @@ public class RoomDAO {
                     Room room = mapResultSetToRoom(rs);
                     logger.fine("Found room by ID: " + id);
                     return room;
-                } else{
+                } else {
                     logger.fine("Room not found with ID=" + id);
                     throw new NotFoundException("Room not found with ID=" + id);
                 }
