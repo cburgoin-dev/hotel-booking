@@ -1,6 +1,6 @@
 package exception;
 
-public class InvalidStatusException extends Exception {
+public class InvalidStatusException extends ValidationException {
     private final String entity;
     private final String invalidValue;
 

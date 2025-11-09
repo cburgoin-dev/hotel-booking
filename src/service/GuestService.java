@@ -35,14 +35,13 @@ public class GuestService {
         return guestDAO.getAll();
     }
 
-    public void createGuest(Guest guest) throws DAOException, GuestInvalidException, GuestNameEmptyException, GuestEmailInvalidException, GuestEmailAlreadyExistsException, GuestPhoneInvalidException {
-        logger.info("Attempting to create guest: guestId=" + guest.getId());
+    public void createGuest(Guest guest) throws DAOException, InvalidException, GuestNameEmptyException, InvalidEmailException, EmailAlreadyExistsException, GuestPhoneInvalidException {
         validateGuest(guest);
         guestDAO.insert(guest);
         logger.info("Guest created successfully: guestId=" + guest.getId());
     }
 
-    public void updateGuest(Guest guest) throws DAOException, NotFoundException, GuestInvalidException, GuestNameEmptyException, GuestEmailInvalidException, GuestEmailAlreadyExistsException, GuestPhoneInvalidException {
+    public void updateGuest(Guest guest) throws DAOException, NotFoundException, InvalidException, GuestNameEmptyException, InvalidEmailException, EmailAlreadyExistsException, GuestPhoneInvalidException {
         logger.info("Attempting to update guest: guestId=" + guest.getId());
         validateGuest(guest);
         guestDAO.update(guest);
@@ -71,10 +70,10 @@ public class GuestService {
         return guestDAO.getGuestPhone(id);
     }
 
-    private void validateGuest(Guest guest) throws GuestInvalidException, GuestNameEmptyException, GuestEmailInvalidException, GuestEmailAlreadyExistsException, GuestPhoneInvalidException {
+    private void validateGuest(Guest guest) throws InvalidException, GuestNameEmptyException, InvalidEmailException, EmailAlreadyExistsException, GuestPhoneInvalidException {
         if (guest == null) {
             logger.warning("Invalid guest: guest is null");
-            throw new GuestInvalidException();
+            throw new InvalidException("Guest");
         }
         if (guest.getFirstName() == null || guest.getFirstName().isBlank()) {
             logger.warning("Invalid guest first name: firstName is null or empty");
@@ -90,18 +89,18 @@ public class GuestService {
 
         if (isEmailDuplicate(guest.getEmail(), guest.getId())) {
             logger.warning("Invalid guest email: email already exists");
-            throw new GuestEmailAlreadyExistsException();
+            throw new EmailAlreadyExistsException();
         }
     }
 
-    private void validateEmail(String email) throws GuestEmailInvalidException {
+    private void validateEmail(String email) throws InvalidEmailException {
         if (email == null || email.isBlank()) {
             logger.warning("Invalid guest email: email is null or empty");
-            throw new GuestEmailInvalidException(true);
+            throw new InvalidEmailException(true);
         }
         if (!email.matches("^[\\w.-]+@[\\w.-]+\\.[A-Za-z]{2,}$")) {
             logger.warning("Invalid guest email: email format is not valid");
-            throw new GuestEmailInvalidException(false);
+            throw new InvalidEmailException(false);
         }
     }
 

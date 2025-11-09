@@ -1,5 +1,7 @@
 package model;
 
+import util.SecurityUtil;
+
 import java.time.LocalDateTime;
 
 public class User {
@@ -104,6 +106,6 @@ public class User {
     }
 
     public boolean checkPassword(String plainPassword) {
-        return false;
+        return SecurityUtil.verifyPassword(plainPassword, this.passwordHash);
     }
 }

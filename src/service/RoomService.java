@@ -28,14 +28,13 @@ public class RoomService {
         return roomDAO.getAll();
     }
 
-    public void createRoom(Room room) throws DAOException, RoomInvalidException, RoomInvalidCapacityException, RoomInvalidPriceException, RoomNumberEmptyException {
-        logger.info("Attempting to create room: roomId=" + room.getId());
+    public void createRoom(Room room) throws DAOException, InvalidException, RoomInvalidCapacityException, RoomInvalidPriceException, RoomNumberEmptyException {
         validateRoom(room);
         roomDAO.insert(room);
         logger.info("Room created successfully: roomId=" + room.getId());
     }
 
-    public void updateRoom(Room room) throws DAOException, NotFoundException, RoomInvalidException, RoomInvalidCapacityException, RoomInvalidPriceException, RoomNumberEmptyException {
+    public void updateRoom(Room room) throws DAOException, NotFoundException, InvalidException, RoomInvalidCapacityException, RoomInvalidPriceException, RoomNumberEmptyException {
         logger.info("Attempting to update room: roomId=" + room.getId());
         validateRoom(room);
         roomDAO.update(room);
@@ -71,10 +70,10 @@ public class RoomService {
         return roomDAO.getRoomAllowedExtraGuests(id);
     }
 
-    private void validateRoom(Room room) throws RoomInvalidException, RoomNumberEmptyException, RoomInvalidPriceException, RoomInvalidCapacityException{
+    private void validateRoom(Room room) throws InvalidException, RoomNumberEmptyException, RoomInvalidPriceException, RoomInvalidCapacityException{
         if (room == null) {
             logger.warning("Invalid room: room is null");
-            throw new RoomInvalidException();
+            throw new InvalidException("Room");
         }
         if (room.getNumber() == null || room.getNumber().isBlank()) {
             logger.warning("Invalid room number: roomNumber is null or empty");

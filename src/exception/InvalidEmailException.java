@@ -1,7 +1,7 @@
 package exception;
 
-public class GuestEmailInvalidException extends GuestException {
-    public GuestEmailInvalidException(boolean isEmpty) {
+public class InvalidEmailException extends ValidationException {
+    public InvalidEmailException(boolean isEmpty) {
         super(generateMessage(isEmpty));
     }
 
@@ -13,3 +13,4 @@ public class GuestEmailInvalidException extends GuestException {
         }
     }
 }
+

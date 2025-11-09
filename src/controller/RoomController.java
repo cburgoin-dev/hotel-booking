@@ -129,7 +129,7 @@ public class RoomController extends BaseController {
             logger.info("Room created successfully: ID=" + room.getId());
             sendJsonResponse(exchange, 201, Map.of("message", "Room created successfully", "room", room));
 
-        } catch (RoomException e) {
+        } catch (ValidationException e) {
             handleValidationError(exchange, e);
         } catch (DAOException e) {
             handleDAOException(exchange, e);
@@ -160,7 +160,7 @@ public class RoomController extends BaseController {
             logger.info("Room updated successfully: ID=" + id);
             sendJsonResponse(exchange, 200, Map.of("message", "Room updated successfully", "room", updatedRoom));
 
-        } catch (RoomException e) {
+        } catch (ValidationException e) {
             handleValidationError(exchange, e);
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);

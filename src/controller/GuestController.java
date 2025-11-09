@@ -142,7 +142,7 @@ public class GuestController extends BaseController {
             logger.info("Guest created successfully: ID=" + guest.getId());
             sendJsonResponse(exchange, 201, Map.of("message", "Guest created successfully", "guest", guest));
 
-        } catch (GuestException e) {
+        } catch (ValidationException e) {
             handleValidationError(exchange, e);
         } catch (DAOException e) {
             handleDAOException(exchange, e);
@@ -168,7 +168,7 @@ public class GuestController extends BaseController {
             logger.info("Guest updated successfully: ID=" + id);
             sendJsonResponse(exchange, 200, Map.of("message", "Guest updated successfully", "guest", updatedGuest));
 
-        } catch (GuestException e) {
+        } catch (ValidationException e) {
             handleValidationError(exchange, e);
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);
@@ -210,7 +210,7 @@ public class GuestController extends BaseController {
             logger.info("Guest updated successfully: ID=" + id);
             sendJsonResponse(exchange, 200, Map.of("message", "Guest updated successfully", "guest", current));
 
-        } catch (GuestException e) {
+        } catch (ValidationException e) {
             handleValidationError(exchange, e);
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);
