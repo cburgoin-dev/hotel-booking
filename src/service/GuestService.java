@@ -94,7 +94,7 @@ public class GuestService {
         }
     }
 
-    private void validateEmail(String email) throws GuestEmailInvalidException, GuestEmailAlreadyExistsException {
+    private void validateEmail(String email) throws GuestEmailInvalidException {
         if (email == null || email.isBlank()) {
             logger.warning("Invalid guest email: email is null or empty");
             throw new GuestEmailInvalidException(true);

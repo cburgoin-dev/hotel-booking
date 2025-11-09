@@ -41,7 +41,7 @@ public class RoomController extends BaseController {
                     break;
 
                 case "GET":
-                    if (path.matches(BASE_PATH + "/\\d+")) {
+                    if (path.matches(BASE_PATH + "/\\d+$")) {
                         handleGetById(exchange);
                     } else {
                         handleGetAll(exchange);
@@ -49,7 +49,7 @@ public class RoomController extends BaseController {
                     break;
 
                 case "PATCH":
-                    if (path.matches(BASE_PATH + "/\\d+/status")) {
+                    if (path.matches(BASE_PATH + "/\\d+/status$")) {
                         handleStatusUpdate(exchange);
                     }
                     break;
@@ -61,7 +61,7 @@ public class RoomController extends BaseController {
                     break;
 
                 case "DELETE":
-                    if (path.matches(BASE_PATH + "/\\d+")) {
+                    if (path.matches(BASE_PATH + "/\\d+$")) {
                         handleDelete(exchange);
                     }
                     break;

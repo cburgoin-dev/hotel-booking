@@ -41,7 +41,7 @@ public class BookingController extends BaseController {
                     break;
 
                 case "GET":
-                    if (path.matches(BASE_PATH + "/\\d+")) {
+                    if (path.matches(BASE_PATH + "/\\d+$")) {
                         handleGetById(exchange);
                     } else {
                         handleGetAll(exchange);
@@ -49,15 +49,15 @@ public class BookingController extends BaseController {
                     break;
 
                 case "PATCH":
-                    if (path.matches(BASE_PATH + "/\\d+/confirm")) {
+                    if (path.matches(BASE_PATH + "/\\d+/confirm$")) {
                         handleConfirm(exchange);
-                    } else if (path.matches(BASE_PATH + "/\\d+/checkin")) {
+                    } else if (path.matches(BASE_PATH + "/\\d+/checkin$")) {
                         handleCheckIn(exchange);
-                    } else if (path.matches(BASE_PATH + "/\\d+/checkout")) {
+                    } else if (path.matches(BASE_PATH + "/\\d+/checkout$")) {
                         handleCheckOut(exchange);
-                    } else if (path.matches(BASE_PATH + "/\\d+/cancel")) {
+                    } else if (path.matches(BASE_PATH + "/\\d+/cancel$")) {
                         handleCancel(exchange);
-                    } else if (path.matches(BASE_PATH + "/\\d+/status")) {
+                    } else if (path.matches(BASE_PATH + "/\\d+/status$")) {
                         handleStatusUpdate(exchange);
                     }
                     break;
@@ -69,7 +69,7 @@ public class BookingController extends BaseController {
                     break;
 
                 case "DELETE":
-                    if (path.matches(BASE_PATH + "/\\d+")) {
+                    if (path.matches(BASE_PATH + "/\\d+$")) {
                         handleDelete(exchange);
                     }
                     break;

@@ -183,7 +183,7 @@ public class GuestDAO {
             if (ignoreId != null) {
                 stmt.setInt(2, ignoreId);
             }
-            
+
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
