@@ -20,8 +20,11 @@ public class TestRoomDAO {
 
          */
 
+        /*
         Room r3 = new Room("103", "double", 180.0, .60, 2, 2, "available");
         dao.insert(r3);
+
+         */
 
         List<Room> rooms = dao.getAll();
         rooms.forEach(System.out::println);

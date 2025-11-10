@@ -14,7 +14,7 @@ import org.mindrot.jbcrypt.BCrypt;
 public class SecurityUtil {
     private static final Logger logger = Logger.getLogger(SecurityUtil.class.getName());
     private static final Dotenv dotenv = Dotenv.load();
-    private static final String VALID_TOKEN = dotenv.get("API_SECRET_KEY");
+    private static final String VALID_TOKEN = dotenv.get("API_KEY");
     private static final int BCRYPT_COST = 12;
 
     private SecurityUtil() { }
