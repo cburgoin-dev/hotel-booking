@@ -130,4 +130,26 @@ public class UserService {
     private boolean isEmailDuplicate(String email, Integer id) throws DAOException {
         return userDAO.existsByEmail(email, id);
     }
+
+    public User authenticate(String email, String password) throws DAOException, NotFoundException, InvalidEmailException, InvalidPasswordException, UserInactiveException {
+        logger.info("Attempting to authenticate user with email: " + email);
+
+        validateEmail(email);
+        validatePassword(password);
+
+        User user = userDAO.findByEmail(email);
+        boolean passwordMatches = user.checkPassword(password);
+        if (!passwordMatches) {
+            logger.warning("Authentication failed: incorrect password for userId=" + user.getId());
+            throw new InvalidPasswordException(InvalidPasswordException.Reason.INVALID);
+        }
+
+        if (!user.isActive()) {
+            logger.warning("Authentication failed: user account is inactive (userId=" + user.getId() + ")");
+            throw new UserInactiveException();
+        }
+
+        logger.info("Authentication successful for userId=" + user.getId());
+        return user;
+    }
 }

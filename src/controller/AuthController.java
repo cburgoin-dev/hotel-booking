@@ -57,6 +57,12 @@ public class AuthController extends BaseController {
         String email = data.get("email");
         String password = data.get("password");
 
+        if (email == null || password == null || email.isBlank() || password.isBlank()) {
+            logger.warning("Login failed: missing email or password");
+            sendJsonResponse(exchange, 400, Map.of("error", "Email and password are required"));
+            return;
+        }
+
         try {
             User user = userService.authenticate(email, password);
             String token = JwtUtil.generateToken(user);
@@ -66,7 +72,11 @@ public class AuthController extends BaseController {
                     "message", "Login successful",
                     "token", token,
                     "user", user
-                    ));
+            ));
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
+        } catch (ValidationException e) {
+            handleValidationError(exchange, e);
         } catch (Exception e) {
             logger.warning("Login failed for email=" + email + ": " + e.getMessage());
             sendJsonResponse(exchange, 401, Map.of("error", e.getMessage()));
@@ -76,6 +86,12 @@ public class AuthController extends BaseController {
     private void handleRegister(HttpExchange exchange) throws IOException {
         String body = new String(exchange.getRequestBody().readAllBytes());
         User user = gson.fromJson(body, User.class);
+
+        if (user.getEmail() == null || user.getPasswordHash() == null || user.getEmail().isBlank() || user.getPasswordHash().isBlank()) {
+            logger.warning("Registration failed: missing email or password");
+            sendJsonResponse(exchange, 400, Map.of("error", "Email and password are required"));
+            return;
+        }
 
         try {
             userService.createUser(user);

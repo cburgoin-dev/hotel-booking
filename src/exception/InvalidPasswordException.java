@@ -6,7 +6,8 @@ public class InvalidPasswordException extends ValidationException {
         TOO_SHORT,
         NO_UPPERCASE,
         NO_NUMBER,
-        NO_SPECIAL_CHAR
+        NO_SPECIAL_CHAR,
+        INVALID
     }
 
     public InvalidPasswordException(Reason reason) {
@@ -20,6 +21,7 @@ public class InvalidPasswordException extends ValidationException {
             case NO_UPPERCASE -> "Password must contain at least one uppercase letter";
             case NO_NUMBER -> "Password must contain at least one number";
             case NO_SPECIAL_CHAR -> "Password must contain at least one special character";
+            case INVALID -> "Password is incorrect";
         };
     }
 }
