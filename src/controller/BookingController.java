@@ -2,11 +2,12 @@ package controller;
 
 import com.sun.net.httpserver.HttpExchange;
 import exception.*;
-import model.Booking;
+import model.*;
 import service.BookingService;
 import util.SecurityUtil;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.Map;
 
 public class BookingController extends BaseController {
@@ -23,16 +24,20 @@ public class BookingController extends BaseController {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        if (!SecurityUtil.isAuthorized(exchange)) {
-            return;
-        }
-
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
+        String query = exchange.getRequestURI().getQuery();
 
         logger.info("Received request: " + method + " " + path);
 
         try {
+            if (!SecurityUtil.isAuthorized(exchange)) {
+                sendJsonResponse(exchange, 401, Map.of("error", "Unauthorized"));
+                return;
+            }
+
+            boolean admin = SecurityUtil.isAdmin(exchange);
+
             switch (method) {
                 case "POST":
                     if (path.matches(BASE_PATH + "/?$")) {
@@ -44,6 +49,10 @@ public class BookingController extends BaseController {
                     if (path.matches(BASE_PATH + "/\\d+$")) {
                         handleGetById(exchange);
                     } else {
+                        if (!admin) {
+                            sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
+                            return;
+                        }
                         handleGetAll(exchange);
                     }
                     break;
@@ -59,6 +68,8 @@ public class BookingController extends BaseController {
                         handleCancel(exchange);
                     } else if (path.matches(BASE_PATH + "/\\d+/status$")) {
                         handleStatusUpdate(exchange);
+                    } else if (path.matches(BASE_PATH + "/\\d+$")) {
+                        handlePartialUpdate(exchange);
                     }
                     break;
 
@@ -69,6 +80,10 @@ public class BookingController extends BaseController {
                     break;
 
                 case "DELETE":
+                    if (!SecurityUtil.isAuthorized(exchange) || !SecurityUtil.isAdmin(exchange)) {
+                        sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
+                        return;
+                    }
                     if (path.matches(BASE_PATH + "/\\d+$")) {
                         handleDelete(exchange);
                     }
@@ -153,6 +168,57 @@ public class BookingController extends BaseController {
 
         } catch (BookingException |
                  RoomUnavailableException e) {
+            handleValidationError(exchange, e);
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
+        } catch (DAOException e) {
+            handleDAOException(exchange, e);
+        }
+    }
+
+    private void handlePartialUpdate(HttpExchange exchange) throws IOException {
+        int id = extractIdFromPath(exchange.getRequestURI().getPath());
+        if (id <= 0) {
+            logger.warning("Invalid booking ID received in PATCH request: " + id);
+            sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+            return;
+        }
+
+        String requestBody = new String(exchange.getRequestBody().readAllBytes());
+        logger.fine("Request body: " + requestBody);
+
+        Map<String, Object> updates = gson.fromJson(requestBody, Map.class);
+
+        try {
+            Booking current = bookingService.getBookingById(id);
+            if (updates.containsKey("roomId")) {
+                current.setRoomId(((Number) updates.get("roomId")).intValue());
+            }
+            if (updates.containsKey("guestId")) {
+                current.setGuestId(((Number) updates.get("guestId")).intValue());
+            }
+            if (updates.containsKey("checkIn")) {
+                current.setCheckIn(gson.fromJson(gson.toJson(updates.get("checkIn")), Date.class));
+            }
+            if (updates.containsKey("checkOut")) {
+                current.setCheckOut(gson.fromJson(gson.toJson(updates.get("checkOut")), Date.class));
+            }
+            if (updates.containsKey("totalPrice")) {
+                current.setTotalPrice(((Number) updates.get("totalPrice")).doubleValue());
+            }
+            if (updates.containsKey("numGuests")) {
+                current.setNumGuests(((Number) updates.get("numGuests")).intValue());
+            }
+            if (updates.containsKey("status")) {
+                current.setStatus(BookingStatus.valueOf((String) updates.get("status")));
+            }
+
+            bookingService.updateBooking(current);
+
+            logger.info("Booking updated successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Booking updated successfully", "booking", current));
+
+        } catch (ValidationException e) {
             handleValidationError(exchange, e);
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);
@@ -257,11 +323,6 @@ public class BookingController extends BaseController {
 
     private void handleStatusUpdate(HttpExchange exchange) throws IOException {
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid booking ID received in PATCH request: " + id);
@@ -269,8 +330,8 @@ public class BookingController extends BaseController {
                 return;
             }
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
-            Map<String, String> body = gson.fromJson(requestBody, Map.class);
-            String newStatus = body.get("status");
+            Map<String, Object> body = gson.fromJson(requestBody, Map.class);
+            String newStatus = (String) body.get("status");
 
             bookingService.updateBookingStatus(id, newStatus);
 
@@ -289,11 +350,6 @@ public class BookingController extends BaseController {
 
     private void handleDelete(HttpExchange exchange) throws IOException {
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid booking ID received in DELETE request: " + id);

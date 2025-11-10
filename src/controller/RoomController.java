@@ -2,7 +2,10 @@ package controller;
 
 import com.sun.net.httpserver.HttpExchange;
 import exception.*;
+import model.Role;
 import model.Room;
+import model.RoomStatus;
+import model.User;
 import service.RoomService;
 import util.SecurityUtil;
 
@@ -23,16 +26,18 @@ public class RoomController extends BaseController {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        if (!SecurityUtil.isAuthorized(exchange)) {
-            return;
-        }
-
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
+        String query = exchange.getRequestURI().getQuery();
 
         logger.info("Received request: " + method + " " + path);
 
         try {
+            if (!SecurityUtil.isAdmin(exchange)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Admin privileges required"));
+                return;
+            }
+
             switch (method) {
                 case "POST":
                     if (path.matches(BASE_PATH + "/?$")) {
@@ -51,6 +56,8 @@ public class RoomController extends BaseController {
                 case "PATCH":
                     if (path.matches(BASE_PATH + "/\\d+/status$")) {
                         handleStatusUpdate(exchange);
+                    } else if (path.matches(BASE_PATH + "/\\d+$")) {
+                        handlePartialUpdate(exchange);
                     }
                     break;
 
@@ -77,11 +84,6 @@ public class RoomController extends BaseController {
 
     private void handleGetById(HttpExchange exchange) throws IOException {
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid room ID received in GET request: " + id);
@@ -101,11 +103,6 @@ public class RoomController extends BaseController {
 
     private void handleGetAll(HttpExchange exchange) throws IOException {
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
             sendJsonResponse(exchange, 200, roomService.getAllRooms());
 
         } catch (DAOException e) {
@@ -115,11 +112,6 @@ public class RoomController extends BaseController {
 
     private void handleCreate(HttpExchange exchange) throws IOException {
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
 
@@ -138,11 +130,6 @@ public class RoomController extends BaseController {
 
     private void handleUpdate(HttpExchange exchange) throws IOException {
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid room ID received in PUT request: " + id);
@@ -171,11 +158,6 @@ public class RoomController extends BaseController {
 
     private void handleStatusUpdate(HttpExchange exchange) throws IOException {
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
-            }
-
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid room ID received in PATCH request: " + id);
@@ -190,6 +172,7 @@ public class RoomController extends BaseController {
 
             logger.info("Room status changed: ID=" + id + " -> " + newStatus);
             sendJsonResponse(exchange, 200, Map.of("message", "Room status updated", "status", newStatus));
+
         } catch (InvalidStatusException e) {
             handleInvalidStatus(exchange, e);
         } catch (NotFoundException e) {
@@ -199,13 +182,59 @@ public class RoomController extends BaseController {
         }
     }
 
-    private void handleDelete(HttpExchange exchange) throws IOException {
+    private void handlePartialUpdate(HttpExchange exchange) throws IOException {
+        int id = extractIdFromPath(exchange.getRequestURI().getPath());
+        if (id <= 0) {
+            logger.warning("Invalid room ID received in PATCH request: " + id);
+            sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
+            return;
+        }
+
+        String requestBody = new String(exchange.getRequestBody().readAllBytes());
+        logger.fine("Request body: " + requestBody);
+
+        Map<String, Object> updates = gson.fromJson(requestBody, Map.class);
+
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                return;
+            Room current = roomService.getRoomById(id);
+            if (updates.containsKey("number")) {
+                current.setNumber((String) updates.get("number"));
+            }
+            if (updates.containsKey("type")) {
+                current.setType((String) updates.get("type"));
+            }
+            if (updates.containsKey("pricePerNight")) {
+                current.setPricePerNight(((Number) updates.get("pricePerNight")).doubleValue());
+            }
+            if (updates.containsKey("extraGuestPricePerNight")) {
+                current.setExtraGuestPricePerNight(((Number) updates.get("extraGuestPricePerNight")).doubleValue());
+            }
+            if (updates.containsKey("capacity")) {
+                current.setCapacity(((Number) updates.get("capacity")).intValue());
+            }
+            if (updates.containsKey("allowedExtraGuests")) {
+                current.setAllowedExtraGuests(((Number) updates.get("allowedExtraGuests")).intValue());
+            }
+            if (updates.containsKey("status")) {
+                current.setStatus(RoomStatus.valueOf((String) updates.get("status")));
             }
 
+            roomService.updateRoom(current);
+
+            logger.info("Room updated successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "Room updated successfully", "room", current));
+
+        } catch (ValidationException e) {
+            handleValidationError(exchange, e);
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
+        } catch (DAOException e) {
+            handleDAOException(exchange, e);
+        }
+    }
+
+    private void handleDelete(HttpExchange exchange) throws IOException {
+        try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid room ID received in DELETE request: " + id);

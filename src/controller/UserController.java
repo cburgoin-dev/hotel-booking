@@ -2,24 +2,25 @@ package controller;
 
 import com.sun.net.httpserver.HttpExchange;
 import exception.*;
-import model.Guest;
-import service.GuestService;
+import model.Role;
+import model.User;
+import service.UserService;
 import util.SecurityUtil;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.time.LocalDateTime;
 import java.util.Map;
 
-public class GuestController extends BaseController {
-    private static final String BASE_PATH = "/api/guests";
-    private final GuestService guestService;
+public class UserController extends BaseController {
+    private static final String BASE_PATH = "/api/users";
+    private final UserService userService;
 
-    public GuestController() {
-        this.guestService = new GuestService();
+    public UserController() {
+        this.userService = new UserService();
     }
 
-    public GuestController(GuestService guestService) {
-        this.guestService = guestService;
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
     @Override
@@ -40,6 +41,10 @@ public class GuestController extends BaseController {
 
             switch (method) {
                 case "POST":
+                    if (!admin) {
+                        sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
+                        return;
+                    }
                     if (path.matches(BASE_PATH + "/?$")) {
                         handleCreate(exchange);
                     }
@@ -85,7 +90,7 @@ public class GuestController extends BaseController {
                     sendJsonResponse(exchange, 405, "Method not allowed");
             }
         } catch (Exception e) {
-            logger.warning("Unexpected error in GuestController: " + e.getMessage());
+            logger.warning("Unexpected error in UserController: " + e.getMessage());
             handleException(exchange, e);
         }
     }
@@ -94,13 +99,13 @@ public class GuestController extends BaseController {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
-                logger.warning("Invalid guest ID received in GET request: " + id);
+                logger.warning("Invalid user ID received in GET request: " + id);
                 sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
                 return;
             }
 
-            Guest guest = guestService.getGuestById(id);
-            sendJsonResponse(exchange, 200, guest);
+            User user = userService.getUserById(id);
+            sendJsonResponse(exchange, 200, user);
 
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);
@@ -111,7 +116,7 @@ public class GuestController extends BaseController {
 
     private void handleGetAll(HttpExchange exchange) throws IOException {
         try {
-            sendJsonResponse(exchange, 200, guestService.getAllGuests());
+            sendJsonResponse(exchange, 200, userService.getAllUsers());
 
         } catch (DAOException e) {
             handleDAOException(exchange, e);
@@ -120,16 +125,10 @@ public class GuestController extends BaseController {
 
     private void handleGetByQuery(HttpExchange exchange, String query) throws IOException {
         Map<String, String> params = parseQueryParams(query);
-        if (params.containsKey("name") && params.containsKey("email")) {
-            sendJsonResponse(exchange, 400, Map.of("error", "Only one query parameter allowed (name or email)"));
-        }
         try {
-            if (params.containsKey("name")) {
-                Guest guest = guestService.getGuestByName(params.get("name"));
-                sendJsonResponse(exchange, 200, guest);
-            } else if (params.containsKey("email")) {
-                Guest guest = guestService.getGuestByEmail(params.get("email"));
-                sendJsonResponse(exchange, 200, guest);
+            if (params.containsKey("email")) {
+                User user = userService.getUserByEmail(params.get("email"));
+                sendJsonResponse(exchange, 200, user);
             } else {
                 sendJsonResponse(exchange, 400, Map.of("error", "Invalid query parameter"));
             }
@@ -145,11 +144,11 @@ public class GuestController extends BaseController {
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
 
-            Guest guest = gson.fromJson(requestBody, Guest.class);
-            guestService.createGuest(guest);
+            User user = gson.fromJson(requestBody, User.class);
+            userService.createUser(user);
 
-            logger.info("Guest created successfully: ID=" + guest.getId());
-            sendJsonResponse(exchange, 201, Map.of("message", "Guest created successfully", "guest", guest));
+            logger.info("User created successfully: ID=" + user.getId());
+            sendJsonResponse(exchange, 201, Map.of("message", "User created successfully", "user", user));
 
         } catch (ValidationException e) {
             handleValidationError(exchange, e);
@@ -162,7 +161,7 @@ public class GuestController extends BaseController {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
-                logger.warning("Invalid guest ID received in PUT request: " + id);
+                logger.warning("Invalid user ID received in PUT request: " + id);
                 sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
                 return;
             }
@@ -170,12 +169,12 @@ public class GuestController extends BaseController {
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
 
-            Guest updatedGuest = gson.fromJson(requestBody, Guest.class);
-            updatedGuest.setId(id);
-            guestService.updateGuest(updatedGuest);
+            User updatedUser = gson.fromJson(requestBody, User.class);
+            updatedUser.setId(id);
+            userService.updateUser(updatedUser);
 
-            logger.info("Guest updated successfully: ID=" + id);
-            sendJsonResponse(exchange, 200, Map.of("message", "Guest updated successfully", "guest", updatedGuest));
+            logger.info("User updated successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "User updated successfully", "user", updatedUser));
 
         } catch (ValidationException e) {
             handleValidationError(exchange, e);
@@ -189,7 +188,7 @@ public class GuestController extends BaseController {
     private void handlePartialUpdate(HttpExchange exchange) throws IOException {
         int id = extractIdFromPath(exchange.getRequestURI().getPath());
         if (id <= 0) {
-            logger.warning("Invalid guest ID received in PATCH request: " + id);
+            logger.warning("Invalid user ID received in PATCH request: " + id);
             sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
             return;
         }
@@ -200,24 +199,27 @@ public class GuestController extends BaseController {
         Map<String, Object> updates = gson.fromJson(requestBody, Map.class);
 
         try {
-            Guest current = guestService.getGuestById(id);
-            if (updates.containsKey("firstName")) {
-                current.setFirstName((String) updates.get("firstName"));
-            }
-            if (updates.containsKey("lastName")) {
-                current.setLastName((String) updates.get("lastName"));
+            User current = userService.getUserById(id);
+            if (updates.containsKey("guestId")) {
+                current.setGuestId((Integer) updates.get("guestId"));
             }
             if (updates.containsKey("email")) {
                 current.setEmail((String) updates.get("email"));
             }
-            if (updates.containsKey("phone")) {
-                current.setPhone((String) updates.get("phone"));
+            if (updates.containsKey("passwordHash")) {
+                current.setPasswordHash((String) updates.get("passwordHash"));
+            }
+            if (updates.containsKey("role")) {
+                current.setRole(Role.valueOf((String) updates.get("role")));
+            }
+            if (updates.containsKey("isActive")) {
+                current.setActive(((Boolean) updates.get("isActive")));
             }
 
-            guestService.updateGuest(current);
+            userService.updateUser(current);
 
-            logger.info("Guest updated successfully: ID=" + id);
-            sendJsonResponse(exchange, 200, Map.of("message", "Guest updated successfully", "guest", current));
+            logger.info("User updated successfully: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "User updated successfully", "user", current));
 
         } catch (ValidationException e) {
             handleValidationError(exchange, e);
@@ -232,14 +234,14 @@ public class GuestController extends BaseController {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
-                logger.warning("Invalid guest ID received in DELETE request: " + id);
+                logger.warning("Invalid user ID received in DELETE request: " + id);
                 sendJsonResponse(exchange, 400, Map.of("error", "Invalid ID"));
                 return;
             }
-            guestService.deleteGuest(id);
+            userService.deleteUser(id);
 
-            logger.info("Guest permanently deleted: ID=" + id);
-            sendJsonResponse(exchange, 200, Map.of("message", "Guest permanently deleted"));
+            logger.info("User permanently deleted: ID=" + id);
+            sendJsonResponse(exchange, 200, Map.of("message", "User permanently deleted"));
         } catch (NotFoundException e) {
             handleNotFound(exchange, e);
         } catch (DAOException e) {

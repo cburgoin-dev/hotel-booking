@@ -14,6 +14,7 @@ public class MainServer {
         server.createContext("/api/bookings", new BookingController());
         server.createContext("/api/rooms", new RoomController());
         server.createContext("/api/guests", new GuestController());
+        server.createContext("/api/users", new UserController());
         server.setExecutor(null);
         server.start();
 

@@ -10,6 +10,7 @@ import exception.NotFoundException;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -71,5 +72,13 @@ public abstract class BaseController implements HttpHandler {
             }
         }
         throw new IllegalArgumentException("Invalid or missing ID in URL: " + path);
+    }
+
+    protected Map<String, String> parseQueryParams(String query) {
+        return Map.ofEntries(
+                Arrays.stream(query.split("&"))
+                        .map(s -> s.split("=", 2))
+                        .map(arr -> Map.entry(arr[0], arr.length > 1 ? arr[1] : "")).toArray(Map.Entry[]::new)
+        );
     }
 }
