@@ -2,6 +2,7 @@ package service;
 
 import dao.UserDAO;
 import exception.*;
+import model.Guest;
 import model.Role;
 import model.User;
 import util.SecurityUtil;
@@ -12,17 +13,23 @@ import java.util.logging.Logger;
 public class UserService {
     private final static Logger logger = Logger.getLogger(UserService.class.getName());
     private final UserDAO userDAO;
+    private final GuestService guestService;
 
-    public UserService(UserDAO userDAO) {
+    public UserService(UserDAO userDAO, GuestService guestService) {
         this.userDAO = userDAO;
+        this.guestService = guestService;
     }
 
     public UserService() {
-        this(new UserDAO());
+        this(new UserDAO(), new GuestService());
     }
 
     public User getUserById(int id) throws DAOException, NotFoundException {
         return userDAO.findById(id);
+    }
+
+    public User getUserByName(String name) throws DAOException, NotFoundException {
+        return userDAO.findByName(name);
     }
 
     public User getUserByEmail(String email) throws DAOException, NotFoundException {
@@ -33,7 +40,7 @@ public class UserService {
         return userDAO.getAll();
     }
 
-    public void createUser(User user) throws DAOException, InvalidException, InvalidEmailException, InvalidPasswordException, InvalidRoleException, EmailAlreadyExistsException {
+    public void createUser(User user) throws DAOException, NotFoundException, InvalidException, EmptyNameException, InvalidEmailException, InvalidPasswordException, InvalidPhoneException, InvalidRoleException, EmailAlreadyExistsException {
         validateUser(user);
 
         String password = user.getPasswordHash();
@@ -42,10 +49,21 @@ public class UserService {
         }
 
         userDAO.insert(user);
+        Guest guest = new Guest(
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getPhone()
+        );
+        guestService.createGuest(guest);
+
+        user.setGuestId(guest.getId());
+        userDAO.update(user);
+
         logger.info("User created successfully: userId=" + user.getId());
     }
 
-    public void updateUser(User user) throws DAOException, NotFoundException, InvalidException, InvalidEmailException, InvalidPasswordException, InvalidRoleException, EmailAlreadyExistsException {
+    public void updateUser(User user) throws DAOException, NotFoundException, InvalidException, EmptyNameException, InvalidEmailException, InvalidPasswordException, InvalidPhoneException, InvalidRoleException, EmailAlreadyExistsException {
         logger.info("Attempting to update user: userId=" + user.getId());
         validateUser(user);
 
@@ -64,14 +82,23 @@ public class UserService {
         logger.info("User deleted successfully: userId=" + id);
     }
 
-    private void validateUser(User user) throws InvalidException, InvalidEmailException, InvalidPasswordException, InvalidRoleException, EmailAlreadyExistsException {
+    private void validateUser(User user) throws InvalidException, EmptyNameException, InvalidEmailException, InvalidPasswordException, InvalidPhoneException, InvalidRoleException, EmailAlreadyExistsException {
         if (user == null) {
             logger.warning("Invalid user: user is null");
             throw new InvalidException("User");
         }
+        if (user.getFirstName() == null || user.getFirstName().isBlank()) {
+            logger.warning("Invalid user first name: firstName is null or empty");
+            throw new EmptyNameException(true, false);
+        }
+        if (user.getLastName() == null || user.getLastName().isBlank()) {
+            logger.warning("Invalid user last name: lastName is null or empty");
+            throw new EmptyNameException(false, true);
+        }
 
         validateEmail(user.getEmail());
         validatePassword(user.getPasswordHash());
+        validatePhone(user.getPhone());
         validateRole(user.getRole().name());
 
         if (isEmailDuplicate(user.getEmail(), user.getId())) {
@@ -111,6 +138,17 @@ public class UserService {
         if (!password.matches(".*[!@#$%^&*(),.?\":{}|<>].*")) {
             logger.warning("Invalid user password: Password must contain at least one special character");
             throw new InvalidPasswordException(InvalidPasswordException.Reason.NO_SPECIAL_CHAR);
+        }
+    }
+
+    private void validatePhone(String phone) throws InvalidPhoneException {
+        if (phone == null || phone.isBlank()) {
+            logger.warning("Invalid user phone: phone is null or empty");
+            throw new InvalidPhoneException(true);
+        }
+        if (!phone.matches("^\\d{10}$")) {
+            logger.warning("Invalid user phone: phone number format is not valid");
+            throw new InvalidPhoneException(false);
         }
     }
 

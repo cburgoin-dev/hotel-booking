@@ -26,6 +26,8 @@ public class RoomController extends BaseController {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        User user = authenticateRequest(exchange);
+
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
         String query = exchange.getRequestURI().getQuery();
@@ -33,8 +35,8 @@ public class RoomController extends BaseController {
         logger.info("Received request: " + method + " " + path);
 
         try {
-            if (!SecurityUtil.isAdmin(exchange)) {
-                sendJsonResponse(exchange, 403, Map.of("error", "Admin privileges required"));
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
                 return;
             }
 

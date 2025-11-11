@@ -3,11 +3,10 @@ package controller;
 import com.sun.net.httpserver.HttpExchange;
 import exception.*;
 import model.Guest;
+import model.User;
 import service.GuestService;
-import util.SecurityUtil;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
 
 public class GuestController extends BaseController {
@@ -24,6 +23,8 @@ public class GuestController extends BaseController {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        User user = authenticateRequest(exchange);
+
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
         String query = exchange.getRequestURI().getQuery();
@@ -31,53 +32,38 @@ public class GuestController extends BaseController {
         logger.info("Received request: " + method + " " + path + (query != null ? "?" + query : ""));
 
         try {
-            if (!SecurityUtil.isAuthorized(exchange)) {
-                sendJsonResponse(exchange, 401, Map.of("error", "Unauthorized"));
-                return;
-            }
-
-            boolean admin = SecurityUtil.isAdmin(exchange);
-
             switch (method) {
                 case "POST":
                     if (path.matches(BASE_PATH + "/?$")) {
-                        handleCreate(exchange);
+                        handleCreate(exchange, user);
                     }
                     break;
 
                 case "GET":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleGetById(exchange);
+                        handleGetById(exchange, user);
                     } else if (query != null) {
-                        handleGetByQuery(exchange, query);
+                        handleGetByQuery(exchange, query, user);
                     } else {
-                        if (!admin) {
-                            sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                            return;
-                        }
-                        handleGetAll(exchange);
+                        handleGetAll(exchange, user);
                     }
                     break;
 
                 case "PATCH":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handlePartialUpdate(exchange);
+                        handlePartialUpdate(exchange, user);
                     }
                     break;
 
                 case "PUT":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleUpdate(exchange);
+                        handleUpdate(exchange, user);
                     }
                     break;
 
                 case "DELETE":
-                    if (!admin) {
-                        sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                        return;
-                    }
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleDelete(exchange);
+                        handleDelete(exchange, user);
                     }
                     break;
 
@@ -90,7 +76,7 @@ public class GuestController extends BaseController {
         }
     }
 
-    private void handleGetById(HttpExchange exchange) throws IOException {
+    private void handleGetById(HttpExchange exchange, User user) throws IOException {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
@@ -100,6 +86,11 @@ public class GuestController extends BaseController {
             }
 
             Guest guest = guestService.getGuestById(id);
+
+            if (!canAccessGuest(guest, user)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             sendJsonResponse(exchange, 200, guest);
 
         } catch (NotFoundException e) {
@@ -109,8 +100,12 @@ public class GuestController extends BaseController {
         }
     }
 
-    private void handleGetAll(HttpExchange exchange) throws IOException {
+    private void handleGetAll(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             sendJsonResponse(exchange, 200, guestService.getAllGuests());
 
         } catch (DAOException e) {
@@ -118,7 +113,7 @@ public class GuestController extends BaseController {
         }
     }
 
-    private void handleGetByQuery(HttpExchange exchange, String query) throws IOException {
+    private void handleGetByQuery(HttpExchange exchange, String query, User user) throws IOException {
         Map<String, String> params = parseQueryParams(query);
         if (params.containsKey("name") && params.containsKey("email")) {
             sendJsonResponse(exchange, 400, Map.of("error", "Only one query parameter allowed (name or email)"));
@@ -126,9 +121,17 @@ public class GuestController extends BaseController {
         try {
             if (params.containsKey("name")) {
                 Guest guest = guestService.getGuestByName(params.get("name"));
+                if (!canAccessGuest(guest, user)) {
+                    sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                    return;
+                }
                 sendJsonResponse(exchange, 200, guest);
             } else if (params.containsKey("email")) {
                 Guest guest = guestService.getGuestByEmail(params.get("email"));
+                if (!canAccessGuest(guest, user)) {
+                    sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                    return;
+                }
                 sendJsonResponse(exchange, 200, guest);
             } else {
                 sendJsonResponse(exchange, 400, Map.of("error", "Invalid query parameter"));
@@ -140,8 +143,13 @@ public class GuestController extends BaseController {
         }
     }
 
-    private void handleCreate(HttpExchange exchange) throws IOException {
+    private void handleCreate(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
 
@@ -158,8 +166,13 @@ public class GuestController extends BaseController {
         }
     }
 
-    private void handleUpdate(HttpExchange exchange) throws IOException {
+    private void handleUpdate(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid guest ID received in PUT request: " + id);
@@ -186,7 +199,7 @@ public class GuestController extends BaseController {
         }
     }
 
-    private void handlePartialUpdate(HttpExchange exchange) throws IOException {
+    private void handlePartialUpdate(HttpExchange exchange, User user) throws IOException {
         int id = extractIdFromPath(exchange.getRequestURI().getPath());
         if (id <= 0) {
             logger.warning("Invalid guest ID received in PATCH request: " + id);
@@ -201,6 +214,11 @@ public class GuestController extends BaseController {
 
         try {
             Guest current = guestService.getGuestById(id);
+            if (!canAccessGuest(current, user)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             if (updates.containsKey("firstName")) {
                 current.setFirstName((String) updates.get("firstName"));
             }
@@ -228,8 +246,12 @@ public class GuestController extends BaseController {
         }
     }
 
-    private void handleDelete(HttpExchange exchange) throws IOException {
+    private void handleDelete(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid guest ID received in DELETE request: " + id);
@@ -245,5 +267,9 @@ public class GuestController extends BaseController {
         } catch (DAOException e) {
             handleDAOException(exchange, e);
         }
+    }
+
+    private boolean canAccessGuest(Guest guest, User user) {
+        return "ADMIN".equals(user.getRole().name()) || guest.getId() == user.getGuestId();
     }
 }

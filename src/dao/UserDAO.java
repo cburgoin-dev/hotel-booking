@@ -15,18 +15,21 @@ public class UserDAO {
     private static final Logger logger = Logger.getLogger(dao.UserDAO.class.getName());
 
     public void insert(User user) throws DAOException {
-        String sql = "INSERT INTO user (guest_id, email, password_hash, role, is_active, created_at, updated_at ) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO user (guest_id, first_name, last_name, email, password_hash, phone, role, is_active, created_at, updated_at ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, user.getGuestId());
-            stmt.setString(2, user.getEmail());
-            stmt.setString(3, user.getPasswordHash());
-            stmt.setString(4, user.getRole().name());
-            stmt.setBoolean(5, user.isActive());
+            stmt.setString(2, user.getFirstName());
+            stmt.setString(3, user.getLastName());
+            stmt.setString(4, user.getEmail());
+            stmt.setString(5, user.getPasswordHash());
+            stmt.setString(6, user.getPhone());
+            stmt.setString(7, user.getRole().name());
+            stmt.setBoolean(8, user.isActive());
             Timestamp now = Timestamp.valueOf(LocalDateTime.now());
-            stmt.setTimestamp(6, now);
-            stmt.setTimestamp(7, now);
+            stmt.setTimestamp(9, now);
+            stmt.setTimestamp(10, now);
 
             int rows = stmt.executeUpdate();
             if (rows == 0) {
@@ -59,6 +62,28 @@ public class UserDAO {
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "Error finding user by ID=" + id, e);
             throw new DAOException("Error finding user by ID=" + id, e);
+        }
+    }
+
+    public User findByName(String name) throws DAOException, NotFoundException {
+        String sql = "SELECT * FROM user WHERE name=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, name);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    User user = mapResultSetToUser(rs);
+                    logger.fine("Found user by NAME: " + name);
+                    return user;
+                } else{
+                    logger.fine("User not found with NAME=" + name);
+                    throw new NotFoundException("User not found with NAME=" + name);
+                }
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Error finding user by NAME=" + name, e);
+            throw new DAOException("Error finding user by NAME=" + name, e);
         }
     }
 
@@ -166,17 +191,20 @@ public class UserDAO {
     }
 
     public void update(User user) throws DAOException, NotFoundException {
-        String sql = "UPDATE user SET guest_id=?, email=?, passwordHash=?, role=?, is_active=?, created_at=?, updated_at=? WHERE id=?";
+        String sql = "UPDATE user SET guest_id=?, first_name=?, last_name=?, email=?, passwordHash=?, phone=?, role=?, is_active=?, created_at=?, updated_at=? WHERE id=?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, user.getGuestId());
-            stmt.setString(2, user.getEmail());
-            stmt.setString(3, user.getPasswordHash());
-            stmt.setString(4, user.getRole().name());
-            stmt.setBoolean(5, user.isActive());
-            stmt.setTimestamp(6, Timestamp.valueOf(user.getCreatedAt()));
-            stmt.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.setString(2, user.getFirstName());
+            stmt.setString(3, user.getLastName());
+            stmt.setString(4, user.getEmail());
+            stmt.setString(5, user.getPasswordHash());
+            stmt.setString(6, user.getPhone());
+            stmt.setString(7, user.getRole().name());
+            stmt.setBoolean(8, user.isActive());
+            stmt.setTimestamp(9, Timestamp.valueOf(user.getCreatedAt()));
+            stmt.setTimestamp(10, Timestamp.valueOf(LocalDateTime.now()));
 
             int rows = stmt.executeUpdate();
             if (rows == 0) {
@@ -217,8 +245,11 @@ public class UserDAO {
         return new User(
                 rs.getInt("id"),
                 rs.getInt("guest_id"),
+                rs.getString("first_name"),
+                rs.getString("last_name"),
                 rs.getString("email"),
                 rs.getString("password_hash"),
+                rs.getString("phone"),
                 Role.valueOf(rs.getString("role")),
                 rs.getBoolean("is_active"),
                 createdTs != null ? createdTs.toLocalDateTime() : null,

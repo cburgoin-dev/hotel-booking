@@ -7,7 +7,6 @@ import model.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,8 +30,8 @@ public class GuestDAO {
             logger.info("Inserted guest: guestId=" + guest.getId() + ", affectedRows=" + rows);
 
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error inserting guest: guestName=" + guest.getFirstName() + " " + guest.getLastName(), e);
-            throw new DAOException("Failed to insert guest with name=" + guest.getFirstName() + " " + guest.getLastName(), e);
+            logger.log(Level.SEVERE, "Error inserting guest: guestName=" + guest.getFullName(), e);
+            throw new DAOException("Failed to insert guest with name=" + guest.getFullName(), e);
         }
     }
 

@@ -5,7 +5,6 @@ import exception.*;
 import model.Role;
 import model.User;
 import service.UserService;
-import util.SecurityUtil;
 
 import java.io.IOException;
 import java.util.Map;
@@ -24,6 +23,8 @@ public class UserController extends BaseController {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        User authenticatedUser = authenticateRequest(exchange);
+
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
         String query = exchange.getRequestURI().getQuery();
@@ -31,57 +32,38 @@ public class UserController extends BaseController {
         logger.info("Received request: " + method + " " + path + (query != null ? "?" + query : ""));
 
         try {
-            if (!SecurityUtil.isAuthorized(exchange)) {
-                sendJsonResponse(exchange, 401, Map.of("error", "Unauthorized"));
-                return;
-            }
-
-            boolean admin = SecurityUtil.isAdmin(exchange);
-
             switch (method) {
                 case "POST":
-                    if (!admin) {
-                        sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                        return;
-                    }
                     if (path.matches(BASE_PATH + "/?$")) {
-                        handleCreate(exchange);
+                        handleCreate(exchange, authenticatedUser);
                     }
                     break;
 
                 case "GET":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleGetById(exchange);
+                        handleGetById(exchange, authenticatedUser);
                     } else if (query != null) {
-                        handleGetByQuery(exchange, query);
+                        handleGetByQuery(exchange, query, authenticatedUser);
                     } else {
-                        if (!admin) {
-                            sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                            return;
-                        }
-                        handleGetAll(exchange);
+                        handleGetAll(exchange, authenticatedUser);
                     }
                     break;
 
                 case "PATCH":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handlePartialUpdate(exchange);
+                        handlePartialUpdate(exchange, authenticatedUser);
                     }
                     break;
 
                 case "PUT":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleUpdate(exchange);
+                        handleUpdate(exchange, authenticatedUser);
                     }
                     break;
 
                 case "DELETE":
-                    if (!admin) {
-                        sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                        return;
-                    }
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleDelete(exchange);
+                        handleDelete(exchange, authenticatedUser);
                     }
                     break;
 
@@ -94,7 +76,7 @@ public class UserController extends BaseController {
         }
     }
 
-    private void handleGetById(HttpExchange exchange) throws IOException {
+    private void handleGetById(HttpExchange exchange, User authenticatedUser) throws IOException {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
@@ -104,6 +86,10 @@ public class UserController extends BaseController {
             }
 
             User user = userService.getUserById(id);
+            if (!canAccessUser(user, authenticatedUser)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             sendJsonResponse(exchange, 200, user);
 
         } catch (NotFoundException e) {
@@ -113,8 +99,12 @@ public class UserController extends BaseController {
         }
     }
 
-    private void handleGetAll(HttpExchange exchange) throws IOException {
+    private void handleGetAll(HttpExchange exchange, User authenticatedUser) throws IOException {
         try {
+            if (!"ADMIN".equals(authenticatedUser.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             sendJsonResponse(exchange, 200, userService.getAllUsers());
 
         } catch (DAOException e) {
@@ -122,11 +112,25 @@ public class UserController extends BaseController {
         }
     }
 
-    private void handleGetByQuery(HttpExchange exchange, String query) throws IOException {
+    private void handleGetByQuery(HttpExchange exchange, String query, User authenticatedUser) throws IOException {
         Map<String, String> params = parseQueryParams(query);
+        if (params.containsKey("name") && params.containsKey("email")) {
+            sendJsonResponse(exchange, 400, Map.of("error", "Only one query parameter allowed (name or email)"));
+        }
         try {
-            if (params.containsKey("email")) {
+            if (params.containsKey("name")) {
+                User user = userService.getUserByName(params.get("name"));
+                if (!canAccessUser(user, authenticatedUser)) {
+                    sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                    return;
+                }
+                sendJsonResponse(exchange, 200, user);
+            } else if (params.containsKey("email")) {
                 User user = userService.getUserByEmail(params.get("email"));
+                if (!canAccessUser(user, authenticatedUser)) {
+                    sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                    return;
+                }
                 sendJsonResponse(exchange, 200, user);
             } else {
                 sendJsonResponse(exchange, 400, Map.of("error", "Invalid query parameter"));
@@ -138,7 +142,7 @@ public class UserController extends BaseController {
         }
     }
 
-    private void handleCreate(HttpExchange exchange) throws IOException {
+    private void handleCreate(HttpExchange exchange, User authenticatedUser) throws IOException {
         try {
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
@@ -151,13 +155,20 @@ public class UserController extends BaseController {
 
         } catch (ValidationException e) {
             handleValidationError(exchange, e);
+        } catch (NotFoundException e) {
+            handleNotFound(exchange, e);
         } catch (DAOException e) {
             handleDAOException(exchange, e);
         }
     }
 
-    private void handleUpdate(HttpExchange exchange) throws IOException {
+    private void handleUpdate(HttpExchange exchange, User authenticatedUser) throws IOException {
         try {
+            if (!"ADMIN".equals(authenticatedUser.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid user ID received in PUT request: " + id);
@@ -184,7 +195,7 @@ public class UserController extends BaseController {
         }
     }
 
-    private void handlePartialUpdate(HttpExchange exchange) throws IOException {
+    private void handlePartialUpdate(HttpExchange exchange, User authenticatedUser) throws IOException {
         int id = extractIdFromPath(exchange.getRequestURI().getPath());
         if (id <= 0) {
             logger.warning("Invalid user ID received in PATCH request: " + id);
@@ -199,14 +210,28 @@ public class UserController extends BaseController {
 
         try {
             User current = userService.getUserById(id);
+            if (!canAccessUser(current, authenticatedUser)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             if (updates.containsKey("guestId")) {
                 current.setGuestId((Integer) updates.get("guestId"));
+            }
+            if (updates.containsKey("firstName")) {
+                current.setFirstName((String) updates.get("firstName"));
+            }
+            if (updates.containsKey("lastName")) {
+                current.setLastName((String) updates.get("lastName"));
             }
             if (updates.containsKey("email")) {
                 current.setEmail((String) updates.get("email"));
             }
             if (updates.containsKey("passwordHash")) {
                 current.setPasswordHash((String) updates.get("passwordHash"));
+            }
+            if (updates.containsKey("phone")) {
+                current.setPhone((String) updates.get("phone"));
             }
             if (updates.containsKey("role")) {
                 current.setRole(Role.valueOf((String) updates.get("role")));
@@ -229,8 +254,13 @@ public class UserController extends BaseController {
         }
     }
 
-    private void handleDelete(HttpExchange exchange) throws IOException {
+    private void handleDelete(HttpExchange exchange, User authenticatedUser) throws IOException {
         try {
+            if (!"ADMIN".equals(authenticatedUser.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid user ID received in DELETE request: " + id);
@@ -246,5 +276,9 @@ public class UserController extends BaseController {
         } catch (DAOException e) {
             handleDAOException(exchange, e);
         }
+    }
+
+    private boolean canAccessUser(User user, User authenticatedUser) {
+        return "ADMIN".equals(user.getRole().name()) || user.getId().equals(authenticatedUser.getId());
     }
 }

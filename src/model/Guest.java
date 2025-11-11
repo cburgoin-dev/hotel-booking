@@ -69,4 +69,8 @@ public class Guest {
                 + "\nPhone: " + this.phone
                 + "\n";
     }
+
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
 }

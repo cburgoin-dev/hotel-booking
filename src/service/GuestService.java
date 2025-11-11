@@ -35,13 +35,13 @@ public class GuestService {
         return guestDAO.getAll();
     }
 
-    public void createGuest(Guest guest) throws DAOException, InvalidException, GuestNameEmptyException, InvalidEmailException, EmailAlreadyExistsException, GuestPhoneInvalidException {
+    public void createGuest(Guest guest) throws DAOException, InvalidException, EmptyNameException, InvalidEmailException, EmailAlreadyExistsException, InvalidPhoneException {
         validateGuest(guest);
         guestDAO.insert(guest);
         logger.info("Guest created successfully: guestId=" + guest.getId());
     }
 
-    public void updateGuest(Guest guest) throws DAOException, NotFoundException, InvalidException, GuestNameEmptyException, InvalidEmailException, EmailAlreadyExistsException, GuestPhoneInvalidException {
+    public void updateGuest(Guest guest) throws DAOException, NotFoundException, InvalidException, EmptyNameException, InvalidEmailException, EmailAlreadyExistsException, InvalidPhoneException {
         logger.info("Attempting to update guest: guestId=" + guest.getId());
         validateGuest(guest);
         guestDAO.update(guest);
@@ -70,18 +70,18 @@ public class GuestService {
         return guestDAO.getGuestPhone(id);
     }
 
-    private void validateGuest(Guest guest) throws InvalidException, GuestNameEmptyException, InvalidEmailException, EmailAlreadyExistsException, GuestPhoneInvalidException {
+    private void validateGuest(Guest guest) throws InvalidException, EmptyNameException, InvalidEmailException, EmailAlreadyExistsException, InvalidPhoneException {
         if (guest == null) {
             logger.warning("Invalid guest: guest is null");
             throw new InvalidException("Guest");
         }
         if (guest.getFirstName() == null || guest.getFirstName().isBlank()) {
             logger.warning("Invalid guest first name: firstName is null or empty");
-            throw new GuestNameEmptyException(true, false);
+            throw new EmptyNameException(true, false);
         }
         if (guest.getLastName() == null || guest.getLastName().isBlank()) {
             logger.warning("Invalid guest last name: lastName is null or empty");
-            throw new GuestNameEmptyException(false, true);
+            throw new EmptyNameException(false, true);
         }
 
         validateEmail(guest.getEmail());
@@ -108,14 +108,14 @@ public class GuestService {
         return guestDAO.existsByEmail(email, id);
     }
 
-    private void validatePhone(String phone) throws GuestPhoneInvalidException {
+    private void validatePhone(String phone) throws InvalidPhoneException {
         if (phone == null || phone.isBlank()) {
             logger.warning("Invalid guest phone: phone is null or empty");
-            throw new GuestPhoneInvalidException(true);
+            throw new InvalidPhoneException(true);
         }
         if (!phone.matches("^\\d{10}$")) {
             logger.warning("Invalid guest phone: phone number format is not valid");
-            throw new GuestPhoneInvalidException(false);
+            throw new InvalidPhoneException(false);
         }
     }
 }

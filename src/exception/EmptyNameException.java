@@ -1,7 +1,7 @@
 package exception;
 
-public class GuestNameEmptyException extends GuestException {
-    public GuestNameEmptyException(boolean emptyFirstName, boolean emptyLastName) {
+public class EmptyNameException extends ValidationException {
+    public EmptyNameException(boolean emptyFirstName, boolean emptyLastName) {
         super(generateMessage(emptyFirstName, emptyLastName));
     }
 

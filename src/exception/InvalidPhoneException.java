@@ -1,7 +1,7 @@
 package exception;
 
-public class GuestPhoneInvalidException extends GuestException {
-    public GuestPhoneInvalidException(boolean isEmpty) {
+public class InvalidPhoneException extends ValidationException {
+    public InvalidPhoneException(boolean isEmpty) {
         super(generateMessage(isEmpty));
     }
 
