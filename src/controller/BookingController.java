@@ -4,7 +4,6 @@ import com.sun.net.httpserver.HttpExchange;
 import exception.*;
 import model.*;
 import service.BookingService;
-import util.SecurityUtil;
 
 import java.io.IOException;
 import java.util.Date;
@@ -24,6 +23,8 @@ public class BookingController extends BaseController {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        User user = authenticateRequest(exchange);
+
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
         String query = exchange.getRequestURI().getQuery();
@@ -31,61 +32,46 @@ public class BookingController extends BaseController {
         logger.info("Received request: " + method + " " + path);
 
         try {
-            if (!SecurityUtil.isAuthorized(exchange)) {
-                sendJsonResponse(exchange, 401, Map.of("error", "Unauthorized"));
-                return;
-            }
-
-            boolean admin = SecurityUtil.isAdmin(exchange);
-
             switch (method) {
                 case "POST":
                     if (path.matches(BASE_PATH + "/?$")) {
-                        handleCreate(exchange);
+                        handleCreate(exchange, user);
                     }
                     break;
 
                 case "GET":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleGetById(exchange);
+                        handleGetById(exchange, user);
                     } else {
-                        if (!admin) {
-                            sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                            return;
-                        }
-                        handleGetAll(exchange);
+                        handleGetAll(exchange, user);
                     }
                     break;
 
                 case "PATCH":
                     if (path.matches(BASE_PATH + "/\\d+/confirm$")) {
-                        handleConfirm(exchange);
+                        handleConfirm(exchange, user);
                     } else if (path.matches(BASE_PATH + "/\\d+/checkin$")) {
-                        handleCheckIn(exchange);
+                        handleCheckIn(exchange, user);
                     } else if (path.matches(BASE_PATH + "/\\d+/checkout$")) {
-                        handleCheckOut(exchange);
+                        handleCheckOut(exchange, user);
                     } else if (path.matches(BASE_PATH + "/\\d+/cancel$")) {
-                        handleCancel(exchange);
+                        handleCancel(exchange, user);
                     } else if (path.matches(BASE_PATH + "/\\d+/status$")) {
-                        handleStatusUpdate(exchange);
+                        handleStatusUpdate(exchange, user);
                     } else if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handlePartialUpdate(exchange);
+                        handlePartialUpdate(exchange, user);
                     }
                     break;
 
                 case "PUT":
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleUpdate(exchange);
+                        handleUpdate(exchange, user);
                     }
                     break;
 
                 case "DELETE":
-                    if (!SecurityUtil.isAuthorized(exchange) || !SecurityUtil.isAdmin(exchange)) {
-                        sendJsonResponse(exchange, 403, Map.of("error", "Forbidden"));
-                        return;
-                    }
                     if (path.matches(BASE_PATH + "/\\d+$")) {
-                        handleDelete(exchange);
+                        handleDelete(exchange, user);
                     }
                     break;
 
@@ -98,7 +84,7 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleGetById(HttpExchange exchange) throws IOException {
+    private void handleGetById(HttpExchange exchange, User user) throws IOException {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
@@ -108,6 +94,12 @@ public class BookingController extends BaseController {
             }
 
             Booking booking = bookingService.getBookingById(id);
+
+            if (!canAccessBooking(booking, user)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             sendJsonResponse(exchange, 200, booking);
 
         } catch (NotFoundException e) {
@@ -117,8 +109,12 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleGetAll(HttpExchange exchange) throws IOException {
+    private void handleGetAll(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             sendJsonResponse(exchange, 200, bookingService.getAllBookings());
 
         } catch (DAOException e) {
@@ -126,7 +122,7 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleCreate(HttpExchange exchange) throws IOException {
+    private void handleCreate(HttpExchange exchange, User user) throws IOException {
         try {
             String requestBody = new String(exchange.getRequestBody().readAllBytes());
             logger.fine("Request body: " + requestBody);
@@ -147,8 +143,12 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleUpdate(HttpExchange exchange) throws IOException {
+    private void handleUpdate(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid booking ID received in PUT request: " + id);
@@ -160,6 +160,7 @@ public class BookingController extends BaseController {
             logger.fine("Request body: " + requestBody);
 
             Booking updatedBooking = gson.fromJson(requestBody, Booking.class);
+
             updatedBooking.setId(id);
             bookingService.updateBooking(updatedBooking);
 
@@ -176,7 +177,7 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handlePartialUpdate(HttpExchange exchange) throws IOException {
+    private void handlePartialUpdate(HttpExchange exchange, User user) throws IOException {
         int id = extractIdFromPath(exchange.getRequestURI().getPath());
         if (id <= 0) {
             logger.warning("Invalid booking ID received in PATCH request: " + id);
@@ -191,6 +192,11 @@ public class BookingController extends BaseController {
 
         try {
             Booking current = bookingService.getBookingById(id);
+            if (!canAccessBooking(current, user)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
+
             if (updates.containsKey("roomId")) {
                 current.setRoomId(((Number) updates.get("roomId")).intValue());
             }
@@ -227,7 +233,7 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleConfirm(HttpExchange exchange) throws IOException {
+    private void handleConfirm(HttpExchange exchange, User user) throws IOException {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
@@ -236,6 +242,10 @@ public class BookingController extends BaseController {
                 return;
             }
             Booking booking = bookingService.getBookingById(id);
+            if (!canAccessBooking(booking, user)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             bookingService.confirmBooking(booking);
 
             logger.info("Booking confirmed successfully: ID=" + id);
@@ -251,8 +261,12 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleCheckIn(HttpExchange exchange) throws IOException {
+    private void handleCheckIn(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid booking ID received in PATCH request: " + id);
@@ -273,8 +287,12 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleCheckOut(HttpExchange exchange) throws IOException {
+    private void handleCheckOut(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid booking ID received in PATCH request: " + id);
@@ -297,7 +315,7 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleCancel(HttpExchange exchange) throws IOException {
+    private void handleCancel(HttpExchange exchange, User user) throws IOException {
         try {
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
@@ -306,6 +324,11 @@ public class BookingController extends BaseController {
                 return;
             }
             Booking booking = bookingService.getBookingById(id);
+
+            if (!canAccessBooking(booking, user)) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             bookingService.cancelBooking(booking);
 
             logger.info("Booking cancelled successfully: ID=" + id);
@@ -321,8 +344,12 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleStatusUpdate(HttpExchange exchange) throws IOException {
+    private void handleStatusUpdate(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid booking ID received in PATCH request: " + id);
@@ -348,8 +375,12 @@ public class BookingController extends BaseController {
         }
     }
 
-    private void handleDelete(HttpExchange exchange) throws IOException {
+    private void handleDelete(HttpExchange exchange, User user) throws IOException {
         try {
+            if (!"ADMIN".equals(user.getRole().name())) {
+                sendJsonResponse(exchange, 403, Map.of("error", "Access denied"));
+                return;
+            }
             int id = extractIdFromPath(exchange.getRequestURI().getPath());
             if (id <= 0) {
                 logger.warning("Invalid booking ID received in DELETE request: " + id);
@@ -365,5 +396,9 @@ public class BookingController extends BaseController {
         } catch (DAOException e) {
             handleDAOException(exchange, e);
         }
+    }
+
+    private boolean canAccessBooking(Booking booking, User user) {
+        return "ADMIN".equals(user.getRole().name()) || booking.getGuestId() == user.getId();
     }
 }

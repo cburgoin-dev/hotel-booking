@@ -36,6 +36,15 @@ public class JwtUtil {
                 .compact();
     }
 
+    public static Map<String, Object> verifyToken(String token) {
+        Claims claims = extractAllClaims(token);
+        return Map.of(
+                "userId", extractUserId(token),
+                "email", claims.get("email"),
+                "role", claims.get("role")
+        );
+    }
+
     public static boolean validateToken(String token) {
         try {
             Claims claims = extractAllClaims(token);
