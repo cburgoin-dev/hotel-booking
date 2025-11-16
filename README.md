@@ -1,4 +1,4 @@
-# Hotel Priscilla Booking
+# Priscilla Hotel
 
 Reservation system for a specific hotel.
 
