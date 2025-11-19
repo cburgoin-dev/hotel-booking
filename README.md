@@ -30,7 +30,7 @@ Backend system for managing hotel room reservations, implemented in Java with My
 - **Room** → Hotel rooms
 - **Guest** → Registered guests
 - **Booking** → Made reservations
-- **User** -> Users
+- **User** → Users
 
 ## Dependencies
 - JDK 17+
