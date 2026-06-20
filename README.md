@@ -1,6 +1,6 @@
 # Hotel Reservation API
 
-Backend API for managing hotel reservations, guests, rooms, and authentication.
+Backend REST API for managing hotel reservations, guests, rooms, and authentication.
 
 Built in Java using a layered Controller–Service–DAO architecture, the system focuses on maintainability, business rule enforcement, and secure access control through JWT authentication.
 
@@ -173,7 +173,7 @@ Response:
 
 ---
 
-## Example Endpoints
+## API Examples
 
 ### Create Reservation
 
@@ -289,7 +289,7 @@ src/
 
 ### Requirements
 
-- JDK 17+
+- JDK 22
 - MySQL
 - IntelliJ IDEA
 
