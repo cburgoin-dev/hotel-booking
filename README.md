@@ -1,54 +1,338 @@
-# Hotel Reservation System (Backend) – Personal Project
+# Hotel Reservation API
 
-Reservation system for a specific hotel.
+Backend API for managing hotel reservations, guests, rooms, and authentication.
 
-## Description
-Backend system for managing hotel room reservations, implemented in Java with MySQL. Built with a modular MVC architecture to ensure maintainable and scalable code. Supports room availability, guest management, booking creation, role-based security, and robust business rule validation.
+Built in Java using a layered Controller–Service–DAO architecture, the system focuses on maintainability, business rule enforcement, and secure access control through JWT authentication.
 
-## Project Structure
-- `/src` → Java source code
-  - `/controller` → Handles HTTP requests and routes them to the appropriate services
-  - `/dao` → Data Access Objects for database operations
-    - `/testing` → Test scripts for DAOs and database interactions
-  - `/exception` → Custom exceptions and error handling
-  - `/lib` → External libraries (e.g., MySQL Connector)
-  - `/model` → Core entities and data models (User, Guest, Booking, Room)
-  - `/service` → Business logic and service layer
-  - `/util` → Utility classes and helper functions
-  - `.env` → Environment variables and configuration
-- `WebContent` → Static web resources (if any, for frontend integration)
-- `.gitignore` → Ignored files
+---
 
-## Features & Highlights
-- Full CRUD functionality for Users, Guests, Bookings, and Rooms, with comprehensive validation and exception handling.
-- Role-based access control with JWT authentication (ADMIN and GUEST roles).
-- Automatic association between User and Guest entities, synchronizing shared data (email, name, phone).
-- Enforces business rules for reservation validation and dynamic pricing.
-- Modular backend architecture for scalability and frontend integration, ready for API consumption.
+## Overview
+
+This project was developed as a personal backend practice project to explore the design of real-world reservation systems.
+
+The API handles the complete booking lifecycle while enforcing business constraints commonly found in hospitality systems, such as room availability validation, authorization rules, and cancellation policies.
+
+Unlike a simple CRUD application, this project emphasizes backend architecture and domain logic.
+
+---
+
+## Features
+
+- JWT authentication and authorization
+- BCrypt password hashing
+- Role-based access control (`ADMIN` and `GUEST`)
+- Guest registration and management
+- Room management
+- Reservation creation and management
+- Room availability validation
+- Business rule enforcement
+- Exception-based error handling
+- RESTful API design
+- Automatic synchronization between User and Guest entities
+
+---
+
+## Tech Stack
+
+- Java
+- MySQL
+- JWT
+- BCrypt
+- IntelliJ IDEA
+
+---
+
+## Architecture
+
+The application follows a layered architecture to separate responsibilities and improve maintainability.
+
+```text
+Controller
+    ↓
+Service
+    ↓
+DAO
+    ↓
+MySQL Database
+```
+
+### Layers
+
+#### Controller
+
+Responsible for receiving HTTP requests and returning responses.
+
+- Request validation
+- Route handling
+- Authentication entry points
+
+#### Service
+
+Contains the business logic of the application.
+
+Examples:
+
+- Reservation validation
+- Authorization checks
+- Cancellation policies
+- User and guest synchronization
+
+#### DAO
+
+Handles data persistence and database interactions.
+
+Examples:
+
+- CRUD operations
+- Query execution
+- Entity retrieval
+
+---
+
+## Core Business Rules
+
+### Room Availability
+
+Reservations cannot overlap for the same room.
+
+If a room is already booked during the selected period:
+
+```http
+409 Conflict
+```
+
+```json
+{
+    "error": "Room unavailable"
+}
+```
+
+---
+
+### Authorization
+
+Protected operations validate the authenticated user's role.
+
+Attempting to access resources without sufficient permissions returns:
+
+```http
+403 Forbidden
+```
+
+```json
+{
+    "error": "Access denied"
+}
+```
+
+---
+
+### Cancellation Policy
+
+Reservations cannot be cancelled within 24 hours of the check-in date.
+
+Attempts to do so return:
+
+```http
+400 Bad Request
+```
+
+```json
+{
+    "error": "Cannot cancel within 24 hours"
+}
+```
+
+---
+
+## Authentication
+
+### Login
+
+```http
+POST /api/auth/login
+```
+
+Request:
+
+```json
+{
+    "email": "admin@hotel.com",
+    "password": "••••••"
+}
+```
+
+Response:
+
+```json
+{
+    "token": "eyJhbGciOi...",
+    "role": "ADMIN"
+}
+```
+
+---
+
+## Example Endpoints
+
+### Create Reservation
+
+```http
+POST /api/bookings
+```
+
+Request:
+
+```json
+{
+    "guestId": 12,
+    "roomId": 5,
+    "checkIn": "2026-07-10",
+    "checkOut": "2026-07-13"
+}
+```
+
+Successful response:
+
+```http
+201 Created
+```
+
+```json
+{
+    "message": "Booking created successfully"
+}
+```
+
+---
+
+### Cancel Reservation
+
+```http
+PATCH /api/bookings/{id}/cancel
+```
+
+---
+
+### Delete Reservation
+
+```http
+DELETE /api/bookings/{id}
+```
+
+---
 
 ## Main Entities
-- **Room** → Hotel rooms
-- **Guest** → Registered guests
-- **Booking** → Made reservations
-- **User** → Users
 
-## Dependencies
+### User
+
+Represents authenticated users of the system.
+
+Responsibilities:
+
+- Authentication
+- Authorization
+- Role assignment
+
+---
+
+### Guest
+
+Represents hotel guests associated with reservations.
+
+Responsibilities:
+
+- Personal information
+- Reservation ownership
+
+---
+
+### Room
+
+Represents hotel rooms available for booking.
+
+Responsibilities:
+
+- Availability management
+- Capacity and room information
+
+---
+
+### Booking
+
+Represents reservations made by guests.
+
+Responsibilities:
+
+- Check-in and check-out dates
+- Validation of business rules
+- Booking lifecycle management
+
+---
+
+## Project Structure
+
+```text
+src/
+├── controller/
+├── dao/
+├── exception/
+├── lib/
+├── model/
+├── service/
+└── util/
+```
+
+---
+
+## Running the Project
+
+### Requirements
+
 - JDK 17+
-- MySQL / XAMPP
-- External libraries in `/lib`
+- MySQL
+- IntelliJ IDEA
 
-## How to Run
-Clone the repository:
-  git clone <repository_url>
-1. Open the project in IntelliJ IDEA
-2. Configure the database connection in `DatabaseConnection.java`
-3. Run the main class
-4. Test endpoints with Postman or similar tools.
+### Setup
 
-## Next Steps
-- Develop a frontend to consume backend endpoints, including login and CRUD forms.
-- Add unit and integration tests to improve reliability and maintainability.
-- Expand features for reporting and analytics on bookings and room occupancy.
+1. Clone the repository.
+
+```bash
+git clone https://github.com/cburgoin-dev/hotel-reservation-api.git
+```
+
+2. Configure the database connection.
+
+3. Create the required database schema.
+
+4. Run the application.
+
+5. Test the endpoints using Postman or any API client.
+
+---
+
+## Future Improvements
+
+Potential improvements for future iterations include:
+
+- Unit testing
+- Integration testing
+- OpenAPI / Swagger documentation
+- Docker support
+- CI/CD pipelines
+- Automated database migrations
+- Frontend client implementation
+
+---
+
+## Purpose
+
+This repository is intended to showcase backend development practices, including layered architecture, authentication, authorization, and business rule implementation in Java.
+
+It serves as a portfolio project demonstrating the design and implementation of a reservation management API beyond basic CRUD functionality.
+
+---
 
 ## License
-[MIT](LICENSE) (optional)
+
+This project is licensed under the MIT License.
