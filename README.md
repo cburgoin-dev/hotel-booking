@@ -330,9 +330,3 @@ Potential improvements for future iterations include:
 This repository is intended to showcase backend development practices, including layered architecture, authentication, authorization, and business rule implementation in Java.
 
 It serves as a portfolio project demonstrating the design and implementation of a reservation management API beyond basic CRUD functionality.
-
----
-
-## License
-
-This project is licensed under the MIT License.
