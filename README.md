@@ -34,7 +34,7 @@ Rather than focusing solely on CRUD operations, this project emphasizes backend 
 
 ## Tech Stack
 
-- Java
+- Java (Oracle OpenJDK 22)
 - MySQL
 - JWT
 - BCrypt
