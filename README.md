@@ -8,11 +8,11 @@ Built in Java using a layered Controller–Service–DAO architecture, the syste
 
 ## Overview
 
-This project was developed as a personal backend practice project to explore the design of real-world reservation systems.
+This project was developed as a personal backend project focused on designing and implementing a reservation management system using layered architecture and secure authentication.
 
 The API handles the complete booking lifecycle while enforcing business constraints commonly found in hospitality systems, such as room availability validation, authorization rules, and cancellation policies.
 
-Unlike a simple CRUD application, this project emphasizes backend architecture and domain logic.
+Rather than focusing solely on CRUD operations, this project emphasizes backend architecture, domain modeling, and business rule implementation.
 
 ---
 
